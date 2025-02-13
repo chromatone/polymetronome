@@ -15,6 +15,9 @@
 #define DEFAULT_BPM 100
 #define MAX_BEATS 16
 
+// BLE constants
+#define BLE_NAME "Metronome"
+
 // Musical state
 typedef struct
 {
@@ -207,9 +210,53 @@ void setupCommands(MainCommand *cmd)
         } });
 }
 
+/* -------------------------------------------------------------------------- */
+/*                                     BLE                                    */
+/* -------------------------------------------------------------------------- */
+#include "ble_utils/BLEMsgStructure.h"
+#include "ble_utils/BLEMetronomeServer.h"
+void onBleConnected();
+void onBleDisconnect();
+void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_t timestamp);
+
+void BLE_init()
+{
+  BLEMetronomeServer.begin(BLE_NAME);
+	BLEMetronomeServer.setOnConnectCallback(onBleConnected);
+	BLEMetronomeServer.setOnDisconnectCallback(onBleDisconnect); 
+	BLEMetronomeServer.setControlChangeCallback(onControlChange);
+
+}
+
+void onBleConnected()
+{
+  Serial.println("BLE Connected");
+}
+
+void onBleDisconnect()
+{
+  Serial.println("BLE Disconnected");
+}
+
+void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_t timestamp)
+{
+  int channel_actual = channel + 1;
+  Serial.printf("Control Change, channel %d, controller %d, value %d\n", channel_actual, controller, value); 
+  // Control BPM by CH15 CC2
+  if (channel_actual == 15 && controller == 2) {
+    timing.bpm = map(value, 0, 127, MIN_BPM, MAX_BPM);
+    Serial.printf("BPM: %d (effective: %d)\n", 
+        timing.bpm, 
+        getEffectiveBpm(timing.bpm, timing.subdivision));}
+  
+}
+
+
+
 void setup()
 {
   Serial.begin(115200);
+  BLE_init();
   pinMode(solenoid.fetPin, OUTPUT);
   pinMode(solenoid.piezoPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(solenoid.piezoPin), hallSensorISR, FALLING);

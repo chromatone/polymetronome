@@ -1,29 +1,27 @@
-# Metronome machine using Solenoid lock
+# 🎵 ESP32 Polyrhythmic Metronome
 
-Simple metronome machine using solenoid to make vibration at given bpm
-by using terminal with line feed and type
+An advanced ESP32-based metronome using a solenoid actuator for precise rhythm training. Features configurable BPM, time signatures, subdivisions and accent patterns.
 
-```
-bpm 70
-```
+## 🎯 Features
 
-for 70bpm etc.
+- Adjustable tempo (20-500 BPM)
+- Variable time signatures (1-16 beats)
+- Subdivisions (1/2, 1/4, 1/8 notes) 
+- Configurable accent patterns
+- Low latency operation via hardware interrupts
+- Serial command interface
 
-This machine can achieve more than 2000bpm with tiny 5V 1A solenoid lock.
+## 🛠️ Hardware Setup
 
-you can optimize the power of stroke 
-by define the on-state time at line
+### Components
+- ESP32 development board
+- 5V solenoid lock actuator (1A)
+- N-channel MOSFET
+- Optional: Piezo sensor for timing analysis
+- 2x 20kΩ resistors (for piezo circuit)
 
-```cpp
-#define ON_STATE_DURATION_MS 7 // 7ms
-```
+### Pinout
 
-## Pinout 
-
-The pieze module can be removed. It's used for determine the time different of vibration generated after command. 
-
-Resistor pinout
-``1---20k---2``
 
 |ESP32|20k ohm|20k ohm|PIEZO MODULE|MOSFET|SOLENOID|SUPPLY|
 |---|---|---|---|---|---|---|
@@ -37,5 +35,24 @@ Resistor pinout
 |||||VIN-||GND|
 
 
-## TODO
-Can we lower the on-state for some cycle to make it generate lower sound?
+## 💻 Usage
+
+Connect via serial terminal at 115200 baud. Available commands:
+
+- `bpm <20-500>` - Set tempo
+- `measure <1-16>` - Set beats per measure
+- `pattern <n>` - Select accent pattern
+- `subdivision <2,4,8>` - Set rhythm subdivision
+- `help` - List all commands
+
+## 🔧 Configuration
+
+Key timing parameters in main.cpp:
+```cpp
+#define NORMAL_DURATION_MS 5    // Normal hit duration
+#define ACCENT_DURATION_MS 7    // Accented hit duration
+#define MIN_TRIGGER_INTERVAL_MS 100
+```
+
+📝 License
+MIT License - Feel free to use and modify for your rhythm practice needs! 

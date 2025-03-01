@@ -14,6 +14,8 @@
 #define MAX_BPM 500
 #define DEFAULT_BPM 100
 #define MAX_BEATS 16
+#define MIN_SUBDIVISION 2
+#define MAX_SUBDIVISION 8
 
 // BLE constants
 #define BLE_NAME "Metronome"
@@ -222,10 +224,9 @@ void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_
 void BLE_init()
 {
   BLEMetronomeServer.begin(BLE_NAME);
-	BLEMetronomeServer.setOnConnectCallback(onBleConnected);
-	BLEMetronomeServer.setOnDisconnectCallback(onBleDisconnect); 
-	BLEMetronomeServer.setControlChangeCallback(onControlChange);
-
+  BLEMetronomeServer.setOnConnectCallback(onBleConnected);
+  BLEMetronomeServer.setOnDisconnectCallback(onBleDisconnect);
+  BLEMetronomeServer.setControlChangeCallback(onControlChange);
 }
 
 void onBleConnected()
@@ -241,17 +242,40 @@ void onBleDisconnect()
 void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_t timestamp)
 {
   int channel_actual = channel + 1;
-  Serial.printf("Control Change, channel %d, controller %d, value %d\n", channel_actual, controller, value); 
+  Serial.printf("Control Change, channel %d, controller %d, value %d\n", channel_actual, controller, value);
   // Control BPM by CH15 CC2
-  if (channel_actual == 15 && controller == 2) {
+  if (channel_actual == 15 && controller == 2)
+  {
     timing.bpm = map(value, 0, 127, MIN_BPM, MAX_BPM);
-    Serial.printf("BPM: %d (effective: %d)\n", 
-        timing.bpm, 
-        getEffectiveBpm(timing.bpm, timing.subdivision));}
-  
+    Serial.printf("BPM: %d (effective: %d)\n",
+                  timing.bpm,
+                  getEffectiveBpm(timing.bpm, timing.subdivision));
+  }
+  // Control subdivision by CH15 CC3
+  if (channel_actual == 15 && controller == 3)
+  {
+    int rawSubdiv = map(value, 0, 127, MIN_SUBDIVISION, MAX_SUBDIVISION);
+    // Round to valid subdivisions (2, 4, or 8)
+    if (rawSubdiv <= 3)
+      timing.subdivision = 2;
+    else if (rawSubdiv <= 6)
+      timing.subdivision = 4;
+    else
+      timing.subdivision = 8;
+    Serial.printf("Subdivision: 1/%d (effective BPM: %d)\n",
+                  timing.subdivision,
+                  getEffectiveBpm(timing.bpm, timing.subdivision));
+  }
+  // Control measure (beats per measure) by CH15 CC4
+  if (channel_actual == 15 && controller == 4)
+  {
+    uint8_t beats = map(value, 0, 127, 1, MAX_BEATS);
+    timing.beatsPerMeasure = beats;
+    timing.currentPattern = 1; // Reset to first pattern
+    timing.currentBeat = 0;    // Reset beat counter
+    Serial.printf("Beats per measure: %d\n", beats);
+  }
 }
-
-
 
 void setup()
 {

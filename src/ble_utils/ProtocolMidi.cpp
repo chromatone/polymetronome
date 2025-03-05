@@ -63,8 +63,8 @@ void ProtocolMidi::controlChange(uint8_t channel, uint8_t controller, uint8_t va
         controller,
         value
     };
-    if(channel > 15)
-        return;
+    // if(channel > 15)
+    //     return;
     if(controller > 127)
         return;
     if(value > 127)
@@ -365,7 +365,7 @@ void ProtocolMidi::sendMessage(uint8_t *message, uint16_t messageSize)
     packet[1] = timestampByte;
     for(int i = 0; i < messageSize; i++)
         packet[i+2] = message[i];
-    sendPacket(packet, messageSize + 2);
+    sendPacket(packet, messageSize + 2); 
 
 }
 

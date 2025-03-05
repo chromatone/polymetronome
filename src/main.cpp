@@ -229,6 +229,21 @@ void BLE_init()
   BLEMetronomeServer.setControlChangeCallback(onControlChange);
 }
 
+void sendCC(uint8_t channel, uint8_t controller, uint8_t value)
+{
+  BLEMetronomeServer.controlChange(channel-1, controller, value);
+}
+
+void sendCurrentStatus()
+{ 
+  //send current BPM as ch16 cc2
+  sendCC(16, 2, map(timing.bpm, MIN_BPM, MAX_BPM, 0, 127));
+  //send current subdivision as ch16 cc3
+  sendCC(16, 3, map(timing.subdivision, MIN_SUBDIVISION, MAX_SUBDIVISION, 0, 127));
+  //send current beats per measure as ch16 cc4
+  sendCC(16, 4, map(timing.beatsPerMeasure, 1, MAX_BEATS, 0, 127));
+}
+
 void onBleConnected()
 {
   Serial.println("BLE Connected");
@@ -243,6 +258,14 @@ void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_
 {
   int channel_actual = channel + 1;
   Serial.printf("Control Change, channel %d, controller %d, value %d\n", channel_actual, controller, value);
+
+
+  // Receive status request from CH15 CC1
+  if (channel_actual == 15 && controller == 1)
+  {
+    sendCurrentStatus();
+  }
+
   // Control BPM by CH15 CC2
   if (channel_actual == 15 && controller == 2)
   {
@@ -250,6 +273,9 @@ void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_
     Serial.printf("BPM: %d (effective: %d)\n",
                   timing.bpm,
                   getEffectiveBpm(timing.bpm, timing.subdivision));
+
+    // Notify connected devices of new BPM as ch16 cc2
+    sendCC(16, 2, value);
   }
   // Control subdivision by CH15 CC3
   if (channel_actual == 15 && controller == 3)
@@ -265,6 +291,9 @@ void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_
     Serial.printf("Subdivision: 1/%d (effective BPM: %d)\n",
                   timing.subdivision,
                   getEffectiveBpm(timing.bpm, timing.subdivision));
+
+    // Notify connected devices of new subdivision as ch16 cc3
+    sendCC(16, 3, value);
   }
   // Control measure (beats per measure) by CH15 CC4
   if (channel_actual == 15 && controller == 4)
@@ -274,7 +303,11 @@ void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_
     timing.currentPattern = 1; // Reset to first pattern
     timing.currentBeat = 0;    // Reset beat counter
     Serial.printf("Beats per measure: %d\n", beats);
+
+    // Notify connected devices of new beats per measure as ch16 cc4
+    sendCC(16, 4, value);
   }
+
 }
 
 void setup()

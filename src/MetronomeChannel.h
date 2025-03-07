@@ -2,6 +2,12 @@
 #include <Arduino.h>
 #include "config.h"
 
+enum BeatState {
+    SILENT = 0,
+    WEAK = 1,
+    ACCENT = 2
+};
+
 class MetronomeChannel {
 private:
     uint8_t id;
@@ -9,47 +15,86 @@ private:
     uint16_t pattern = 1;
     float multiplier = 1.0;
     uint8_t currentBeat = 0;
-    bool beatState = false;
+    bool enabled = true;
     uint32_t lastBeatTime = 0;
+    bool editing = false;
+    uint8_t editStep = 0;
 
 public:
     MetronomeChannel(uint8_t channelId) : id(channelId) {}
 
     void update(uint32_t globalBpm, uint32_t currentTime) {
+        if (!enabled) return;
+        
         uint32_t effectiveBpm = globalBpm * multiplier;
         uint32_t beatInterval = 60000 / effectiveBpm;
         
         if (currentTime - lastBeatTime >= beatInterval) {
             currentBeat = (currentBeat + 1) % barLength;
-            beatState = getPatternBit(currentBeat);
             lastBeatTime = currentTime;
         }
     }
 
-    bool getPatternBit(uint8_t position) const {
-        uint16_t fullPattern = (pattern << 1) | 1;
-        return (fullPattern >> position) & 1;
+    BeatState getBeatState() const {
+        if (!enabled) return SILENT;
+        uint16_t fullPattern = (pattern << 1) | 1; // First beat always on
+        return (fullPattern >> currentBeat) & 1 ? ACCENT : SILENT;
     }
 
-    uint16_t getMaxPattern() const {
-        if (barLength >= 16) return 32767;
-        return ((1 << barLength) - 1) >> 1;
+    void toggleBeat(uint8_t step) {
+        if (step == 0) return; // Can't toggle first beat
+        uint16_t mask = 1 << step;
+        pattern ^= mask;
     }
 
-    // Getters
+    void generateEuclidean(uint8_t activeBeats) {
+        // Ensure first beat is included in count
+        activeBeats = constrain(activeBeats, 1, barLength);
+        pattern = 0;
+        
+        // Euclidean algorithm implementation
+        float spacing = float(barLength) / activeBeats;
+        for (uint8_t i = 1; i < barLength; i++) {
+            if (int(i * spacing) != int((i-1) * spacing)) {
+                pattern |= (1 << i);
+            }
+        }
+    }
+
+    // Add getters and setters
     uint8_t getId() const { return id; }
     uint8_t getBarLength() const { return barLength; }
     uint16_t getPattern() const { return pattern; }
     float getMultiplier() const { return multiplier; }
     uint8_t getCurrentBeat() const { return currentBeat; }
-    bool getBeatState() const { return beatState; }
+    bool isEnabled() const { return enabled; }
+    bool isEditing() const { return editing; }
+    uint8_t getEditStep() const { return editStep; }
 
-    // Setters
-    void setBarLength(int8_t length) { barLength = constrain(length, 1, MAX_BEATS); }
-    void setPattern(int16_t pat) { pattern = constrain(pat, 0, getMaxPattern()); }
-    void toggleMultiplier() {
-        if (multiplier == 0.5f) multiplier = 1.0f;
-        else if (multiplier == 1.0f) multiplier = 2.0f;
-        else multiplier = 0.5f;
+    void setBarLength(uint8_t length) { 
+        barLength = constrain(length, 1, 16);
+        pattern &= ((1 << barLength) - 1);
+    }
+    void setPattern(uint16_t pat) { pattern = pat; }
+    void setMultiplier(float mult) { multiplier = mult; }
+    void toggleEnabled() { enabled = !enabled; }
+    void setEditing(bool edit) { editing = edit; }
+    void setEditStep(uint8_t step) { editStep = step % barLength; }
+
+    bool getPatternBit(uint8_t position) const {
+        if (!enabled) return false;
+        uint16_t fullPattern = (pattern << 1) | 1; // First beat always on
+        return (fullPattern >> position) & 1;
+    }
+
+    float getProgress(uint32_t currentTime, uint32_t globalBpm) const {
+        if (!enabled || !lastBeatTime) return 0.0f;
+        uint32_t beatInterval = 60000 / (globalBpm * multiplier);
+        return float(currentTime - lastBeatTime) / beatInterval;
+    }
+
+    uint16_t getMaxPattern() const {
+        if (barLength >= 16) return 32767; // Max 15-bit value
+        return ((1 << barLength) - 1) >> 1; // (2^length - 1) / 2, first bit always 1
     }
 };

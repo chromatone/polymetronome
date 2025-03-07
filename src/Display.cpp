@@ -13,67 +13,140 @@ void Display::begin() {
 void Display::update(const MetronomeState& state) {
     display->clearBuffer();
     
-    // Draw global BPM
-    char buffer[32];
-    sprintf(buffer, "%d BPM", state.bpm);
-    bool isBpmSelected = (state.navLevel == GLOBAL && state.menuPosition == 0);
-    drawParameter(0, 0, buffer, isBpmSelected, state.isEditing);
+    // Global status row
+    drawGlobalRow(state);
     
-    // Draw channels
-    for (uint8_t i = 0; i < 2; i++) {
-        const MetronomeChannel& ch = state.getChannel(i);
-        uint8_t y = 22 + (i * 20);
-        
-        // Channel header
-        sprintf(buffer, "CH%d", i+1);
-        bool isSelected = (state.navLevel == GLOBAL && state.menuPosition == i+1) ||
-                         (state.navLevel == CHANNEL && state.activeChannel == i);
-        drawParameter(0, y, buffer, isSelected, false);
-        
-        // Pattern info
-        sprintf(buffer, "%d/%d P:%d", 
-            ch.getCurrentBeat() + 1, 
-            ch.getBarLength(), 
-            ch.getPattern());
-        drawText(64, y, buffer);
-        
-        // Draw beat grid
-        drawChannelGrid(0, y+10, ch);
+    // Global progress bar at y=12
+    drawProgressBar(12, state.globalTick / 60000.0f);
+    
+    // Channel blocks
+    drawChannelBlock(state, 0, 16); // First channel
+    drawChannelBlock(state, 1, 40); // Second channel
+    
+    // Flash border on beats if running
+    if (state.isRunning) {
+        drawFlash(millis());
     }
     
     display->sendBuffer();
 }
 
-void Display::drawParameter(uint8_t x, uint8_t y, const char* text, bool selected, bool editing) {
-    if (selected) {
-        if (editing) {
-            display->drawBox(x, y, 60, 12);
+void Display::drawGlobalRow(const MetronomeState& state) {
+    char buffer[32];
+    
+    // BPM display with selection frame
+    sprintf(buffer, "%d BPM", state.bpm);
+    if (state.isBpmSelected()) {
+        display->drawFrame(0, 0, 45, 11);
+        if (state.isEditing) {
+            display->drawBox(0, 0, 45, 11);
             display->setDrawColor(0);
-            display->drawStr(x+2, y+10, text);
-            display->setDrawColor(1);
-        } else {
-            display->drawFrame(x, y, 60, 12);
-            display->drawStr(x+2, y+10, text);
         }
-    } else {
-        display->drawStr(x+2, y+10, text);
+    }
+    display->drawStr(2, 8, buffer);
+    display->setDrawColor(1);
+    
+    // Beat counter on the right
+    uint32_t totalBeats = state.getChannel(0).getBarLength() * state.getChannel(1).getBarLength();
+    sprintf(buffer, "%lu/%lu", (state.globalTick / 60000) % totalBeats + 1, totalBeats);
+    display->drawStr(85, 8, buffer);
+}
+
+void Display::drawProgressBar(uint8_t y, float progress) {
+    uint8_t width = progress * 124;
+    display->drawFrame(2, y, 124, 2);
+    if (width > 0) {
+        display->drawBox(2, y, width, 2);
     }
 }
 
-void Display::drawChannelGrid(uint8_t x, uint8_t y, const MetronomeChannel& ch) {
+void Display::drawChannelBlock(const MetronomeState& state, uint8_t channelIndex, uint8_t y) {
+    const MetronomeChannel& channel = state.getChannel(channelIndex);
+    char buffer[32];
+    
+    // Length row (e.g., "04")
+    sprintf(buffer, "%02d", channel.getBarLength());
+    bool isLengthSelected = state.isLengthSelected(channelIndex);
+    
+    if (isLengthSelected) {
+        display->drawFrame(0, y, 120, 12);
+        if (state.isEditing) {
+            display->drawBox(0, y, 120, 12);
+            display->setDrawColor(0);
+        }
+    }
+    
+    // Click indicator and length
+    drawClickIndicator(2, y+2, channel.getBeatState(), channel.isEnabled());
+    display->drawStr(20, y+10, buffer);
+    display->setDrawColor(1);
+    
+    // Progress bar
+    drawProgressBar(y+14, channel.getProgress(millis(), state.bpm));
+    
+    // Pattern row
+    uint8_t patternY = y + 16;
+    bool isPatternSelected = state.isPatternSelected(channelIndex);
+    
+    if (isPatternSelected) {
+        display->drawFrame(0, patternY, 120, 12);
+        if (state.isEditing) {
+            display->drawBox(0, patternY, 120, 12);
+            display->setDrawColor(0);
+        }
+    }
+    
+    drawBeatGrid(2, patternY+2, channel, false);
+    display->setDrawColor(1);
+}
+
+void Display::drawClickIndicator(uint8_t x, uint8_t y, BeatState state, bool isActive) {
+    if (isActive) {
+        display->drawFrame(x, y, 16, 10);
+    }
+    
+    switch(state) {
+        case ACCENT:
+            display->drawBox(x+4, y+2, 8, 6);
+            break;
+        case WEAK:
+            display->drawFrame(x+4, y+2, 8, 6);
+            break;
+        case SILENT:
+            display->drawPixel(x+8, y+5);
+            break;
+    }
+}
+
+void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel& ch, bool isEditing) {
     uint8_t cellWidth = 120 / ch.getBarLength();
     
     for (uint8_t i = 0; i < ch.getBarLength(); i++) {
         uint8_t cellX = x + (i * cellWidth);
+        bool isCurrentBeat = (i == ch.getCurrentBeat());
+        bool isBeatActive = ch.getPatternBit(i); // Fixed: use getPatternBit directly
         
-        if (ch.getPatternBit(i)) {
-            if (i == ch.getCurrentBeat() && ch.getBeatState()) {
-                display->drawBox(cellX, y, cellWidth-1, 8);
+        if (isEditing && i == ch.getEditStep()) {
+            display->drawFrame(cellX, y, cellWidth-1, 8);
+        }
+        
+        if (isBeatActive) {
+            if (isCurrentBeat && ch.isEnabled()) {
+                display->drawBox(cellX+2, y+2, cellWidth-5, 4);
             } else {
-                display->drawFrame(cellX, y, cellWidth-1, 8);
+                display->drawDisc(cellX + cellWidth/2, y+4, 2);
             }
         } else {
-            display->drawPixel(cellX + cellWidth/2, y + 4);
+            display->drawPixel(cellX + cellWidth/2, y+4);
         }
+    }
+}
+
+void Display::drawFlash(uint32_t currentTime) {
+    static uint32_t lastFlashTime = 0;
+    static const uint32_t FLASH_DURATION = 50;
+    
+    if (currentTime - lastFlashTime < FLASH_DURATION) {
+        display->drawFrame(0, 0, 128, 64);
     }
 }

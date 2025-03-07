@@ -40,19 +40,8 @@ void handleButtons() {
     bool encBtn = digitalRead(ENCODER_BTN);
     
     if (encBtn != lastEncBtn && encBtn == LOW) {
-        if (state.navLevel == GLOBAL && state.menuPosition > 0) {
-            // Enter channel editing
-            state.activeChannel = state.menuPosition - 1;
-            state.navLevel = CHANNEL;
-            state.menuPosition = 0;
-        } else if (state.navLevel == CHANNEL) {
-            // Exit to global
-            state.navLevel = GLOBAL;
-            state.menuPosition = state.activeChannel + 1;
-        } else {
-            // Toggle editing for BPM
-            state.isEditing = !state.isEditing;
-        }
+        // Toggle editing mode
+        state.isEditing = !state.isEditing;
     }
     lastEncBtn = encBtn;
     
@@ -86,26 +75,25 @@ void handleControls() {
     if (currentStep != lastStep) {
         int32_t diff = currentStep - lastStep;
         
-        if (state.isEditing && state.navLevel == GLOBAL && state.menuPosition == 0) {
-            // Edit BPM
-            state.bpm = constrain(state.bpm + diff, MIN_BPM, MAX_BPM);
-        } else if (state.navLevel == CHANNEL) {
-            auto& channel = state.getChannel(state.activeChannel);
-            switch(state.menuPosition) {
-                case 0: // Bar Length
+        if (state.isEditing) {
+            if (state.isBpmSelected()) {
+                state.bpm = constrain(state.bpm + diff, MIN_BPM, MAX_BPM);
+            } 
+            else {
+                uint8_t channelIndex = state.getActiveChannel();
+                bool isLength = state.menuPosition % 2 == 1;
+                auto& channel = state.getChannel(channelIndex);
+                
+                if (isLength) {
                     channel.setBarLength(channel.getBarLength() + diff);
-                    break;
-                case 1: // Pattern
-                    channel.setPattern(channel.getPattern() + diff);
-                    break;
+                } else {
+                    uint16_t newPattern = channel.getPattern() + diff;
+                    channel.setPattern(constrain(newPattern, 0, channel.getMaxPattern()));
+                }
             }
         } else {
             // Navigate menu
-            if (state.navLevel == GLOBAL) {
-                state.menuPosition = (state.menuPosition + diff + 3) % 3;
-            } else {
-                state.menuPosition = (state.menuPosition + diff + 2) % 2;
-            }
+            state.menuPosition = (state.menuPosition + state.getMenuItemsCount() + diff) % state.getMenuItemsCount();
         }
         lastEncoderValue = encoderValue;
     }
@@ -113,15 +101,20 @@ void handleControls() {
 
 void updateMetronome() {
     if (state.isRunning) {
-        // Individual channel updates are now handled in state.update()
         state.update();
         
-        // Handle solenoid actuation for active channel
-        const MetronomeChannel& activeChannel = state.getChannel(state.activeChannel);
-        if (activeChannel.getBeatState()) {
-            digitalWrite(SOLENOID_PIN, HIGH);
-            delay(SOLENOID_PULSE_MS);
-            digitalWrite(SOLENOID_PIN, LOW);
+        // Handle solenoid actuation for active channels
+        for (uint8_t i = 0; i < 2; i++) {
+            const MetronomeChannel& channel = state.getChannel(i);
+            if (channel.getBeatState() == ACCENT) {
+                digitalWrite(SOLENOID_PIN, HIGH);
+                delay(ACCENT_PULSE_MS);
+                digitalWrite(SOLENOID_PIN, LOW);
+            } else if (channel.getBeatState() == WEAK) {
+                digitalWrite(SOLENOID_PIN, HIGH);
+                delay(SOLENOID_PULSE_MS);
+                digitalWrite(SOLENOID_PIN, LOW);
+            }
         }
     }
 }

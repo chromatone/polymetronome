@@ -4,22 +4,18 @@
 #include "MetronomeChannel.h"
 
 class Display {
-    private:
-        U8G2_SH1106_128X64_NONAME_F_HW_I2C* display;
+private:
+    U8G2_SH1106_128X64_NONAME_F_HW_I2C* display;
+    
+    void drawGlobalRow(const MetronomeState& state);
+    void drawProgressBar(uint8_t y, float progress);
+    void drawChannelBlock(const MetronomeState& state, uint8_t channelIndex, uint8_t y);
+    void drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel& ch, bool isEditing);
+    void drawClickIndicator(uint8_t x, uint8_t y, BeatState state, bool isActive);
+    void drawFlash(uint32_t currentTime);
 
-    public:
-        Display();
-        void begin();
-        void update(const MetronomeState& state);
-
-    private:
-        void drawBPM(const MetronomeState& state);
-        void drawBar(const MetronomeState& state);
-        void drawPattern(const MetronomeState& state);
-        void drawGrid(const MetronomeState& state);
-        void drawParameter(uint8_t x, uint8_t y, const char* text, bool selected, bool editing);
-        void drawChannelGrid(uint8_t x, uint8_t y, const MetronomeChannel& ch);
-        void drawText(uint8_t x, uint8_t y, const char* text) {
-            display->drawStr(x, y, text);
-        }
+public:
+    Display();
+    void begin();
+    void update(const MetronomeState& state);
 };

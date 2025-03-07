@@ -321,6 +321,30 @@ Legend:
 ◐ - Global cycle progress
 ```
 
+```
+┌──────────────────┐
+│120 BPM x1    5/12│
+│|**--------------|│
+│04|**------------|│
+│[ X ][ X ][ ][ x ]│
+│03|**------------|│
+│[  X  ][   ][    ]│
+└──────────────────┘
+```
+
+Navigation hierarchy
+
+1.  Global row BPM, multiplier, click indicator and LCD number (current and total)
+2.  global progress bar
+3.  1st channel block
+    1.  1st row
+        1.  Click indicator block with the bar length of the channel inside - briefly flashes white fill for accent, outline for weak beat and small dot for silent beat. On enc_push enable/disable the channel. On enc_push hold reset the pattern to Euclidean with the same number of active steps as at the moment of long press.
+        2.  channel progress bar / active step indicator for step edit mode
+    2.  First beat - always active, on enc_push we go down the pattern editing mode - instead of progress bar we can display the pointer that will show the step we are editing now. Clicking the steps toggles their state immediately. Choosing the first step and clicking it gets us out back to the channel level.
+4.  2nd channel block - same as 1st.
+
+So on main level of navigation we cycle through: BPM, multiplier, ch1 length, ch1 pattern, ch2 length, ch2 pattern.
+
 ### Beat Types
 
 - **Accent (Strong)**: 7ms solenoid activation

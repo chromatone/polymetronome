@@ -19,16 +19,8 @@ void Display::update(const MetronomeState& state) {
     drawGlobalRow(state);
     drawGlobalProgress(state);
     
-    // Add horizontal divider after global section
-    display->drawLine(1, 15, 127, 15);
-    
-    // Adjust vertical spacing for better distribution
-    drawChannelBlock(state, 0, 17); // First channel with 3px gap after global section
-    
-    // Add horizontal divider between channels
-    display->drawLine(1, 39, 127, 39);
-    
-    drawChannelBlock(state, 1, 41); // Second channel with 2px gap after divider
+    drawChannelBlock(state, 0, 14); // First channel at 13px
+    drawChannelBlock(state, 1, 38); // Second channel at 35px (13 + 22)
     
     if (state.isRunning) {
         drawFlash(millis());
@@ -40,37 +32,35 @@ void Display::update(const MetronomeState& state) {
 void Display::drawGlobalRow(const MetronomeState& state) {
     char buffer[32];
     
-    // Added 1px padding at top of global row (starts at y=2 instead of y=1)
-    
     // BPM display with selection frame
     sprintf(buffer, "%d BPM", state.bpm);
     if (state.isBpmSelected()) {
-        display->drawFrame(1, 2, 45, 10); // Adjusted for top padding
+        display->drawFrame(1, 1, 45, 10); // Adjusted for border
         if (state.isEditing) {
-            display->drawBox(1, 2, 45, 10);
+            display->drawBox(1, 1, 45, 10);
             display->setDrawColor(0);
         }
     }
-    display->drawStr(3, 10, buffer); // Adjusted for top padding
+    display->drawStr(3, 9, buffer); // Adjusted for border
     display->setDrawColor(1);
 
     // Multiplier display
     sprintf(buffer, "x%s", state.getCurrentMultiplierName());
     if (state.isMultiplierSelected()) {
-        display->drawFrame(49, 2, 30, 10); // Adjusted for top padding
+        display->drawFrame(49, 1, 30, 10); // Adjusted for border
         if (state.isEditing) {
-            display->drawBox(49, 2, 30, 10);
+            display->drawBox(49, 1, 30, 10);
             display->setDrawColor(0);
         }
     }
-    display->drawStr(51, 10, buffer); // Adjusted for top padding
+    display->drawStr(51, 9, buffer); // Adjusted for border
     display->setDrawColor(1);
     
     // Beat counter on the right
     uint32_t totalBeats = state.getTotalBeats();
     uint32_t currentBeat = (state.globalTick % totalBeats) + 1;
     sprintf(buffer, "%lu/%lu", currentBeat, totalBeats);
-    display->drawStr(86, 10, buffer); // Adjusted for top padding
+    display->drawStr(86, 9, buffer); // Adjusted for border
 }
 
 void Display::drawGlobalProgress(const MetronomeState& state) {
@@ -78,16 +68,12 @@ void Display::drawGlobalProgress(const MetronomeState& state) {
     
     float progress = float(state.globalTick % state.getTotalBeats()) / state.getTotalBeats();
     uint8_t width = uint8_t(progress * (SCREEN_WIDTH - 2)); // Adjusted for border
-    display->drawBox(1, 12, width, 2); // Adjusted for top padding and 2px tall
+    display->drawBox(1, 11, width, 1); // Adjusted for border
 }
 
 void Display::drawChannelBlock(const MetronomeState& state, uint8_t channelIndex, uint8_t y) {
     const MetronomeChannel& channel = state.getChannel(channelIndex);
     char buffer[32];
-    
-    // Add channel label
-    sprintf(buffer, "CH%d", channelIndex + 1);
-    display->drawStr(2, y + 8, buffer);
     
     // Length display with blinking effect when active
     bool isActive = channel.isEnabled();
@@ -119,14 +105,14 @@ void Display::drawChannelBlock(const MetronomeState& state, uint8_t channelIndex
     sprintf(buffer, "%02d", channel.getBarLength());
     bool isLengthSelected = state.isLengthSelected(channelIndex);
     
-    // Box for length - moved to the right of channel label
+    // Box for length
     uint8_t boxWidth = 20;
-    uint8_t boxX = 24; // Positioned after channel label
+    uint8_t boxX = 1; // Adjusted for border
     
     if (isLengthSelected) {
-        display->drawFrame(boxX, y, 95, 10); // Frame covers both length control and pattern counter
+        display->drawFrame(1, y, 120, 10); // Adjusted for border
         if (state.isEditing) {
-            display->drawBox(boxX, y, 95, 10);
+            display->drawBox(1, y, 120, 10);
             display->setDrawColor(0);
         }
     }
@@ -138,8 +124,13 @@ void Display::drawChannelBlock(const MetronomeState& state, uint8_t channelIndex
         display->drawStr(boxX + 2, y + 8, buffer);
         display->setDrawColor(1); // Back to normal
     } else {
-        display->drawFrame(boxX, y, boxWidth, 10);
-        display->drawStr(boxX + 2, y + 8, buffer);
+        // Only draw the frame when blinking or selected
+        if (isLengthSelected) {
+            display->drawStr(boxX + 2, y + 8, buffer);
+        } else {
+            // Just draw the number without the frame
+            display->drawStr(boxX + 2, y + 8, buffer);
+        }
     }
     
     // Add pattern counter (current/total)
@@ -150,14 +141,14 @@ void Display::drawChannelBlock(const MetronomeState& state, uint8_t channelIndex
     
     display->setDrawColor(1);
     
-    // Pattern row - add 2px gap between rows
-    uint8_t patternY = y + 12; // 2px gap between rows
+    // Pattern row - removed gap between rows
+    uint8_t patternY = y + 10; // Directly below length row
     bool isPatternSelected = state.isPatternSelected(channelIndex);
     
     if (isPatternSelected) {
-        display->drawFrame(1, patternY, 126, 10); // Full width frame for pattern
+        display->drawFrame(1, patternY, 120, 10); // Adjusted for border
         if (state.isEditing) {
-            display->drawBox(1, patternY, 126, 10);
+            display->drawBox(1, patternY, 120, 10);
             display->setDrawColor(0);
         }
     }

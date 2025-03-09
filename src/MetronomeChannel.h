@@ -19,6 +19,7 @@ private:
     uint32_t lastBeatTime = 0;
     bool editing = false;
     uint8_t editStep = 0;
+    float beatProgress = 0.0f;
 
 public:
     MetronomeChannel(uint8_t channelId) : id(channelId) {}
@@ -96,5 +97,20 @@ public:
     uint16_t getMaxPattern() const {
         if (barLength >= 16) return 32767; // Max 15-bit value
         return ((1 << barLength) - 1) >> 1; // (2^length - 1) / 2, first bit always 1
+    }
+
+    void updateProgress(uint32_t currentTime, uint32_t lastBeatTime, uint32_t globalBpm) {
+        if (!enabled) return;
+        float progress = float(currentTime - lastBeatTime) / (60000.0f / globalBpm);
+        beatProgress = progress;
+    }
+
+    void updateBeat() {
+        if (!enabled) return;
+        currentBeat = (currentBeat + 1) % barLength;
+    }
+
+    float getProgress() const {
+        return enabled ? beatProgress : 0.0f;
     }
 };

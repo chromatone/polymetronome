@@ -13,17 +13,12 @@ void Display::begin() {
 void Display::update(const MetronomeState& state) {
     display->clearBuffer();
     
-    // Global status row
     drawGlobalRow(state);
+    drawGlobalProgress(state);
     
-    // Global progress bar at y=12
-    drawProgressBar(12, state.globalTick / 60000.0f);
+    drawChannelBlock(state, 0, 13); // First channel at 13px
+    drawChannelBlock(state, 1, 35); // Second channel at 35px (13 + 22)
     
-    // Channel blocks
-    drawChannelBlock(state, 0, 16); // First channel
-    drawChannelBlock(state, 1, 40); // Second channel
-    
-    // Flash border on beats if running
     if (state.isRunning) {
         drawFlash(millis());
     }
@@ -37,66 +32,75 @@ void Display::drawGlobalRow(const MetronomeState& state) {
     // BPM display with selection frame
     sprintf(buffer, "%d BPM", state.bpm);
     if (state.isBpmSelected()) {
-        display->drawFrame(0, 0, 45, 11);
+        display->drawFrame(0, 1, 45, 10); // Start at y=1 for padding
         if (state.isEditing) {
-            display->drawBox(0, 0, 45, 11);
+            display->drawBox(0, 1, 45, 10);
             display->setDrawColor(0);
         }
     }
-    display->drawStr(2, 8, buffer);
+    display->drawStr(2, 9, buffer); // Move text down 1px
+    display->setDrawColor(1);
+
+    // Multiplier display
+    sprintf(buffer, "x%s", state.getCurrentMultiplierName());
+    if (state.isMultiplierSelected()) {
+        display->drawFrame(48, 1, 30, 10); // Start at y=1 for padding
+        if (state.isEditing) {
+            display->drawBox(48, 1, 30, 10);
+            display->setDrawColor(0);
+        }
+    }
+    display->drawStr(50, 9, buffer); // Move text down 1px
     display->setDrawColor(1);
     
     // Beat counter on the right
-    uint32_t totalBeats = state.getChannel(0).getBarLength() * state.getChannel(1).getBarLength();
-    sprintf(buffer, "%lu/%lu", (state.globalTick / 60000) % totalBeats + 1, totalBeats);
-    display->drawStr(85, 8, buffer);
+    uint32_t totalBeats = state.getTotalBeats();
+    uint32_t currentBeat = (state.globalTick % totalBeats) + 1;
+    sprintf(buffer, "%lu/%lu", currentBeat, totalBeats);
+    display->drawStr(85, 9, buffer); // Move text down 1px
 }
 
-void Display::drawProgressBar(uint8_t y, float progress) {
-    uint8_t width = progress * 124;
-    display->drawFrame(2, y, 124, 2);
-    if (width > 0) {
-        display->drawBox(2, y, width, 2);
-    }
+void Display::drawGlobalProgress(const MetronomeState& state) {
+    if (!state.isRunning) return;
+    
+    float progress = float(state.globalTick % state.getTotalBeats()) / state.getTotalBeats();
+    uint8_t width = uint8_t(progress * SCREEN_WIDTH);
+    display->drawBox(0, 11, width, 1); // Single pixel progress bar at y=11
 }
 
 void Display::drawChannelBlock(const MetronomeState& state, uint8_t channelIndex, uint8_t y) {
     const MetronomeChannel& channel = state.getChannel(channelIndex);
     char buffer[32];
     
-    // Length row (e.g., "04")
+    // Length row
     sprintf(buffer, "%02d", channel.getBarLength());
     bool isLengthSelected = state.isLengthSelected(channelIndex);
     
     if (isLengthSelected) {
-        display->drawFrame(0, y, 120, 12);
+        display->drawFrame(0, y, 120, 10); // Reduced height to 10px
         if (state.isEditing) {
-            display->drawBox(0, y, 120, 12);
+            display->drawBox(0, y, 120, 10);
             display->setDrawColor(0);
         }
     }
     
-    // Click indicator and length
-    drawClickIndicator(2, y+2, channel.getBeatState(), channel.isEnabled());
-    display->drawStr(20, y+10, buffer);
+    drawClickIndicator(2, y+1, channel.getBeatState(), channel.isEnabled());
+    display->drawStr(20, y+8, buffer);
     display->setDrawColor(1);
     
-    // Progress bar
-    drawProgressBar(y+14, channel.getProgress(millis(), state.bpm));
-    
-    // Pattern row
-    uint8_t patternY = y + 16;
+    // Pattern row - removed gap between rows
+    uint8_t patternY = y + 10; // Directly below length row
     bool isPatternSelected = state.isPatternSelected(channelIndex);
     
     if (isPatternSelected) {
-        display->drawFrame(0, patternY, 120, 12);
+        display->drawFrame(0, patternY, 120, 10);
         if (state.isEditing) {
-            display->drawBox(0, patternY, 120, 12);
+            display->drawBox(0, patternY, 120, 10);
             display->setDrawColor(0);
         }
     }
     
-    drawBeatGrid(2, patternY+2, channel, false);
+    drawBeatGrid(2, patternY+1, channel, false);
     display->setDrawColor(1);
 }
 
@@ -124,7 +128,7 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel& ch, boo
     for (uint8_t i = 0; i < ch.getBarLength(); i++) {
         uint8_t cellX = x + (i * cellWidth);
         bool isCurrentBeat = (i == ch.getCurrentBeat());
-        bool isBeatActive = ch.getPatternBit(i); // Fixed: use getPatternBit directly
+        bool isBeatActive = ch.getPatternBit(i);
         
         if (isEditing && i == ch.getEditStep()) {
             display->drawFrame(cellX, y, cellWidth-1, 8);
@@ -136,6 +140,11 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel& ch, boo
             } else {
                 display->drawDisc(cellX + cellWidth/2, y+4, 2);
             }
+        } else if (isCurrentBeat && ch.isEnabled()) {
+            // Pulsing dot for silent active beat
+            float pulse = (millis() % 500) / 500.0f; // 0.0 to 1.0 over 500ms
+            uint8_t radius = 1 + pulse;
+            display->drawDisc(cellX + cellWidth/2, y+4, radius);
         } else {
             display->drawPixel(cellX + cellWidth/2, y+4);
         }

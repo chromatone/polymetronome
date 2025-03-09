@@ -78,15 +78,17 @@ void handleControls() {
         if (state.isEditing) {
             if (state.isBpmSelected()) {
                 state.bpm = constrain(state.bpm + diff, MIN_BPM, MAX_BPM);
-            } 
+            }
+            else if (state.isMultiplierSelected()) {
+                state.adjustMultiplier(diff);
+            }
             else {
                 uint8_t channelIndex = state.getActiveChannel();
-                bool isLength = state.menuPosition % 2 == 1;
                 auto& channel = state.getChannel(channelIndex);
                 
-                if (isLength) {
+                if (state.isLengthSelected(channelIndex)) {  // Changed condition
                     channel.setBarLength(channel.getBarLength() + diff);
-                } else {
+                } else if (state.isPatternSelected(channelIndex)) {  // Added explicit condition
                     uint16_t newPattern = channel.getPattern() + diff;
                     channel.setPattern(constrain(newPattern, 0, channel.getMaxPattern()));
                 }
@@ -101,6 +103,8 @@ void handleControls() {
 
 void updateMetronome() {
     if (state.isRunning) {
+        uint32_t effectiveBpm = state.getEffectiveBpm();
+        // Use effectiveBpm instead of state.bpm for timing calculations
         state.update();
         
         // Handle solenoid actuation for active channels

@@ -20,6 +20,11 @@
 #define SOLENOID_PULSE_MS 5
 #define ACCENT_PULSE_MS 7
 
+// Multiplier values (in quarters)
+#define MULTIPLIER_COUNT 7
+#define MULTIPLIERS {0.25, 0.333, 0.5, 1.0, 2.0, 3.0, 4.0}
+#define MULTIPLIER_NAMES {"1/4", "1/3", "1/2", "1", "2", "3", "4"}
+
 // Display dimensions
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64

@@ -11,7 +11,6 @@ private:
     void drawGlobalProgress(const MetronomeState& state);
     void drawChannelBlock(const MetronomeState& state, uint8_t channelIndex, uint8_t y);
     void drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel& ch, bool isEditing);
-    void drawClickIndicator(uint8_t x, uint8_t y, BeatState state, bool isActive);
     void drawFlash(uint32_t currentTime);
 
 public:

@@ -19,8 +19,15 @@ void Display::update(const MetronomeState& state) {
     drawGlobalRow(state);
     drawGlobalProgress(state);
     
-    drawChannelBlock(state, 0, 14); // First channel at 13px
-    drawChannelBlock(state, 1, 38); // Second channel at 35px (13 + 22)
+    // Add horizontal line after global section
+    display->drawHLine(1, 13, 126);
+    
+    drawChannelBlock(state, 0, 14); // First channel at 14px
+    
+    // Add horizontal line between channel 1 and channel 2
+    display->drawHLine(1, 37, 126);
+    
+    drawChannelBlock(state, 1, 38); // Second channel at 38px
     
     if (state.isRunning) {
         drawFlash(millis());

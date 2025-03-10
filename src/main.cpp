@@ -2,19 +2,16 @@
 #include "config.h"
 #include "Display.h"
 #include "MetronomeState.h"
+#include "MetronomeTimer.h"
+#include "SolenoidController.h"
 
 MetronomeState state;
 Display display;
-
-// Hardware timer declarations
-hw_timer_t *metronomeTimer = NULL;
-portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
+MetronomeTimer metronomeTimer(&state);
+SolenoidController solenoidController(SOLENOID_PIN);
 
 volatile int32_t encoderValue = 0;
 volatile uint8_t lastEncA = HIGH;
-volatile bool beatTrigger = false;
-volatile uint8_t activeBeatChannel = 0;
-volatile BeatState activeBeatState = SILENT;
 
 void IRAM_ATTR encoderISR()
 {
@@ -28,94 +25,21 @@ void IRAM_ATTR encoderISR()
     }
 }
 
-// Timer interrupt handler - KEEP THIS AS SHORT AS POSSIBLE
-void IRAM_ATTR onMetronomeTimer()
+// Callback for beat events from the timer
+void onBeatEvent(uint8_t channel, BeatState beatState)
 {
-    // Use a mutex to prevent race conditions
-    portENTER_CRITICAL_ISR(&timerMux);
-
-    // Increment the global tick and set the beat trigger
-    state.globalTick++;
-    state.lastBeatTime = millis(); // Update for display purposes
-
-    // Check each channel to see if it should trigger on this tick
-    for (uint8_t i = 0; i < 2; i++)
-    {
-        MetronomeChannel &channel = state.getChannel(i);
-        if (channel.isEnabled())
-        {
-            // Only update the beat if the channel's timing aligns with the global tick
-            channel.updateBeat();
-
-            // Set flags for the main loop to handle the solenoid
-            BeatState currentState = channel.getBeatState();
-            if (currentState != SILENT)
-            {
-                beatTrigger = true;
-                activeBeatChannel = i;
-                activeBeatState = currentState;
-            }
-        }
-    }
-
-    portEXIT_CRITICAL_ISR(&timerMux);
-}
-
-// Function to set up the timer with the correct interval
-void setupMetronomeTimer()
-{
-    // Stop the timer if it's already running
-    if (metronomeTimer != NULL)
-    {
-        timerAlarmDisable(metronomeTimer);
-        timerDetachInterrupt(metronomeTimer);
-        timerEnd(metronomeTimer);
-    }
-
-    // Calculate the timer interval in microseconds based on effective BPM
-    uint32_t effectiveBpm = state.getEffectiveBpm();
-
-    // Period in microseconds = (60 seconds / BPM) * 1,000,000
-    uint32_t periodMicros = (60 * 1000000) / effectiveBpm;
-
-    // Set up the timer (use timer 0, prescaler 80 for microsecond precision, count up)
-    metronomeTimer = timerBegin(0, 80, true);
-
-    // Attach the interrupt handler
-    timerAttachInterrupt(metronomeTimer, &onMetronomeTimer, true);
-
-    // Set alarm to trigger at the calculated interval (autoreload = true)
-    timerAlarmWrite(metronomeTimer, periodMicros, true);
+    solenoidController.processBeat(channel, beatState);
 }
 
 void toggleMetronome(bool enable)
 {
     if (enable)
     {
-        // Set up the timer with the correct interval
-        setupMetronomeTimer();
-
-        // Reset timing variables for a clean start
-        state.globalTick = 0;
-        state.lastBeatTime = millis(); // Keep for display/UI purposes
-
-        // Reset channels to start at beginning
-        for (uint8_t i = 0; i < 2; i++)
-        {
-            MetronomeChannel &channel = state.getChannel(i);
-            channel.resetBeat();
-        }
-
-        // Enable the timer alarm
-        timerAlarmEnable(metronomeTimer);
+        metronomeTimer.start();
     }
     else
     {
-        // Disable the timer alarm
-        if (metronomeTimer != NULL)
-        {
-            timerAlarmDisable(metronomeTimer);
-        }
+        metronomeTimer.stop();
     }
 }
 
@@ -131,15 +55,19 @@ void setup()
     pinMode(ENCODER_BTN, INPUT_PULLUP);
     pinMode(BTN_START, INPUT_PULLUP);
     pinMode(BTN_STOP, INPUT_PULLUP);
-    pinMode(SOLENOID_PIN, OUTPUT);
+
+    // Initialize solenoid controller
+    solenoidController.init();
 
     // Initialize display
     display.begin();
 
+    // Initialize metronome timer
+    metronomeTimer.init();
+    metronomeTimer.setBeatCallback(onBeatEvent);
+
     // Set up encoder interrupt
     attachInterrupt(digitalPinToInterrupt(ENCODER_A), encoderISR, CHANGE);
-
-    // Do not initialize the timer here - wait until start button is pressed
 
     Serial.println("Setup complete");
 }
@@ -262,8 +190,7 @@ void handleControls()
             // Update timer settings if BPM or multiplier changed
             if (needTimerUpdate && state.isRunning)
             {
-                toggleMetronome(false); // Stop first
-                toggleMetronome(true);  // Then restart with new settings
+                metronomeTimer.updateTiming();
                 Serial.println("Timer reconfigured");
             }
         }
@@ -277,47 +204,16 @@ void handleControls()
     }
 }
 
-// Function to handle solenoid actuation based on channel beat states
-void handleSolenoid()
-{
-    // Only process if we have a trigger from the ISR
-    if (beatTrigger)
-    {
-        // Clear the flag first to avoid missing subsequent triggers
-        portENTER_CRITICAL(&timerMux);
-        beatTrigger = false;
-        BeatState beatState = activeBeatState;
-        portEXIT_CRITICAL(&timerMux);
-
-        if (beatState == ACCENT)
-        {
-            digitalWrite(SOLENOID_PIN, HIGH);
-            delayMicroseconds(ACCENT_PULSE_MS * 1000);
-            digitalWrite(SOLENOID_PIN, LOW);
-            Serial.println("ACCENT beat");
-        }
-        else if (beatState == WEAK)
-        {
-            digitalWrite(SOLENOID_PIN, HIGH);
-            delayMicroseconds(SOLENOID_PULSE_MS * 1000);
-            digitalWrite(SOLENOID_PIN, LOW);
-            Serial.println("WEAK beat");
-        }
-    }
-}
-
 void loop()
 {
-    static uint32_t lastDisplayUpdate = 0;
-    uint32_t currentTime = millis();
-
     // Process inputs
     handleButtons();
     handleControls();
 
-    // Process solenoid actuation from timer interrupt
-    handleSolenoid();
+    // Process any pending beat events from the timer interrupt
+    metronomeTimer.processBeat();
 
+    // Update the display
     display.update(state);
 
     // Short yield to prevent watchdog timeouts

@@ -13,20 +13,22 @@ class MetronomeState
 {
 private:
     MetronomeChannel channels[2] = {MetronomeChannel(0), MetronomeChannel(1)};
+
+public:
+    // Make multiplier values public so the timer can access them
     const float multiplierValues[MULTIPLIER_COUNT] = MULTIPLIERS;
     const char *multiplierNames[MULTIPLIER_COUNT] = MULTIPLIER_NAMES;
     uint8_t currentMultiplierIndex = 3; // Default to 1x
 
-public:
     uint16_t bpm = 120;
     bool isRunning = false;
     bool isPaused = false;
-    uint32_t globalTick = 0;
+    volatile uint32_t globalTick = 0; // Made volatile for ISR access
 
     NavLevel navLevel = GLOBAL;
     uint8_t menuPosition = 0; // Global: 0=BPM, 1=Multiplier, 2=Ch1Len, 3=Ch1Pat, 4=Ch2Len, 5=Ch2Pat
     bool isEditing = false;
-    uint32_t lastBeatTime = 0;
+    uint32_t lastBeatTime = 0; // Kept for display/UI purposes
     uint32_t currentBeat = 0;
     uint32_t longPressStart = 0;
     bool longPressActive = false;
@@ -41,37 +43,28 @@ public:
         return channels[index];
     }
 
+    // This method is now only used for display updates, not for timing
     void update()
     {
         if (isRunning)
         {
+            // Update just for display purposes
             uint32_t currentTime = millis();
-
-            // If we're resuming from a pause, update lastBeatTime to maintain rhythm
             if (lastBeatTime == 0)
             {
                 lastBeatTime = currentTime;
             }
 
-            uint32_t beatInterval = 60000 / getEffectiveBpm();
+            // No beat timing logic here anymore - it's handled by the timer ISR
 
-            if (currentTime - lastBeatTime >= beatInterval)
-            {
-                globalTick++;
-                lastBeatTime = currentTime;
-
-                for (auto &channel : channels)
-                {
-                    channel.updateBeat();
-                }
-            }
-
+            // Just update progress for display purposes
             for (auto &channel : channels)
             {
                 channel.updateProgress(currentTime, lastBeatTime, getEffectiveBpm());
             }
         }
     }
+
     uint8_t getMenuItemsCount() const
     {
         return 6; // BPM, Multiplier, Ch1Len, Ch1Pat, Ch2Len, Ch2Pat

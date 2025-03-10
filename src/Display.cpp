@@ -45,43 +45,44 @@ void Display::drawGlobalRow(const MetronomeState &state)
     sprintf(buffer, "%d BPM", state.bpm);
     if (state.isBpmSelected())
     {
-        display->drawFrame(1, 1, 45, 12); 
+        display->drawFrame(1, 1, 45, 12);
         if (state.isEditing)
         {
             display->drawBox(1, 1, 45, 12);
             display->setDrawColor(0);
         }
     }
-    display->drawStr(3, 11, buffer); 
+    display->drawStr(3, 11, buffer);
     display->setDrawColor(1);
 
     // Multiplier display
     sprintf(buffer, "x%s", state.getCurrentMultiplierName());
     if (state.isMultiplierSelected())
     {
-        display->drawFrame(49, 1, 30, 12); 
+        display->drawFrame(49, 1, 30, 12);
         if (state.isEditing)
         {
             display->drawBox(49, 1, 30, 12);
             display->setDrawColor(0);
         }
     }
-    display->drawStr(51, 11, buffer); 
+    display->drawStr(51, 11, buffer);
     display->setDrawColor(1);
 
     // Beat counter on the right
     uint32_t totalBeats = state.getTotalBeats();
     uint32_t currentBeat = (state.globalTick % totalBeats) + 1;
     sprintf(buffer, "%lu/%lu", currentBeat, totalBeats);
-    display->drawStr(86, 11, buffer); 
+    display->drawStr(86, 11, buffer);
 }
 
 void Display::drawGlobalProgress(const MetronomeState &state)
 {
-    if (!state.isRunning)
+    if (!state.isRunning && !state.isPaused)
         return;
 
-    float progress = float(state.globalTick % state.getTotalBeats()) / state.getTotalBeats();
+    float progress = float(state.globalTick % state.getTotalBeats() + 1) / (state.getTotalBeats());
+
     uint8_t width = uint8_t(progress * (SCREEN_WIDTH - 2));
     display->drawBox(1, 14, width, 2);
 }
@@ -129,10 +130,10 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
 
     if (isLengthSelected)
     {
-        display->drawFrame(1, y-1, 126, 12); // Adjusted for border
+        display->drawFrame(1, y - 1, 126, 12); // Adjusted for border
         if (state.isEditing)
         {
-            display->drawBox(1, y-1, 126, 12);
+            display->drawBox(1, y - 1, 126, 12);
             display->setDrawColor(0);
         }
     }
@@ -140,7 +141,7 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
     // Invert colors if we should blink
     if (shouldBlink)
     {
-        display->drawBox(boxX, y-1, boxWidth, 12);
+        display->drawBox(boxX, y - 1, boxWidth, 12);
         display->setDrawColor(0); // White text on black
         display->drawStr(boxX + 2, y + 8, buffer);
         display->setDrawColor(1); // Back to normal
@@ -160,8 +161,8 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
     }
 
     // Add pattern counter (current/total)
-    uint16_t currentPattern = channel.getPattern();
-    uint16_t maxPattern = channel.getMaxPattern();
+    uint16_t currentPattern = channel.getPattern() + 1;
+    uint16_t maxPattern = channel.getMaxPattern() + 1;
     sprintf(buffer, "%u/%u", currentPattern, maxPattern);
     display->drawStr(85, y + 8, buffer);
 

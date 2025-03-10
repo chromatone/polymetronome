@@ -113,4 +113,10 @@ public:
     float getProgress() const {
         return enabled ? beatProgress : 0.0f;
     }
+
+    void resetBeat() {
+        currentBeat = 0;
+        lastBeatTime = 0;
+        beatProgress = 0.0f;
+    }
 };

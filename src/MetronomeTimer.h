@@ -33,7 +33,8 @@ public:
     ticker.detach();
 
     state->globalTick = 0;
-    state->lastBeatTime = millis();
+    // No need to use millis() for lastBeatTime as we're using ticks for timing
+    state->lastBeatTime = 0;
 
     for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
       state->getChannel(i).resetBeat();
@@ -55,7 +56,9 @@ public:
 
   void IRAM_ATTR handleInterrupt() {
     state->globalTick++;
-    state->lastBeatTime = millis();
+    // No need to use millis() for lastBeatTime as we're using ticks for timing
+    // This avoids potential issues with millis() in ISRs
+    state->lastBeatTime = state->globalTick;
 
     for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
       MetronomeChannel &channel = state->getChannel(i);

@@ -1,16 +1,33 @@
 #include "Display.h"
 #include "config.h"
 
+// Initialize static member
+Display* Display::_instance = nullptr;
+
 Display::Display()
 {
     display = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
+    _instance = this;
 }
 
 Display::~Display()
 {
+    stopAnimation();
+    if (_instance == this)
+    {
+        _instance = nullptr;
+    }
     if (display)
     {
         delete display;
+    }
+}
+
+void Display::animationTickerCallback()
+{
+    if (_instance)
+    {
+        _instance->animationTick++;
     }
 }
 
@@ -18,6 +35,19 @@ void Display::begin()
 {
     display->begin();
     display->setFont(u8g2_font_t0_11_tr);
+}
+
+void Display::startAnimation()
+{
+    animationTicker.detach();
+    animationTick = 0;
+    // Update animation at 20ms intervals (50Hz)
+    animationTicker.attach(0.02, animationTickerCallback);
+}
+
+void Display::stopAnimation()
+{
+    animationTicker.detach();
 }
 
 void Display::update(const MetronomeState &state)
@@ -39,7 +69,7 @@ void Display::update(const MetronomeState &state)
 
     if (state.isRunning)
     {
-        drawFlash(millis());
+        drawFlash();
     }
 
     display->sendBuffer();
@@ -106,26 +136,30 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
 
     if (isActive && state.isRunning)
     {
-        // Determine if we should blink based on beat state and timing
+        // Determine if we should blink based on beat state and animation tick
         BeatState beatState = channel.getBeatState();
-        uint32_t currentTime = millis();
-        uint32_t lastBeatTime = state.lastBeatTime;
-        uint32_t blinkDuration = 0;
+        uint32_t blinkDurationTicks = 0;
 
         switch (beatState)
         {
         case ACCENT:
-            blinkDuration = ACCENT_PULSE_MS * 4;
+            // Convert ms to animation ticks (20ms per tick)
+            blinkDurationTicks = (ACCENT_PULSE_MS * 4) / 20;
             break;
         case WEAK:
-            blinkDuration = SOLENOID_PULSE_MS * 4;
+            // Convert ms to animation ticks (20ms per tick)
+            blinkDurationTicks = (SOLENOID_PULSE_MS * 4) / 20;
             break;
         default:
-            blinkDuration = 0;
+            blinkDurationTicks = 0;
             break;
         }
 
-        shouldBlink = (currentTime - lastBeatTime < blinkDuration);
+        // Calculate how many ticks have passed since the last beat
+        uint32_t beatTick = state.globalTick * (1000 / (state.getEffectiveBpm() / 60));
+        uint32_t ticksSinceLastBeat = animationTick - beatTick;
+        
+        shouldBlink = (ticksSinceLastBeat < blinkDurationTicks);
     }
 
     // Length row
@@ -228,20 +262,16 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, boo
     }
 }
 
-void Display::drawFlash(uint32_t currentTime)
+void Display::drawFlash()
 {
-    static uint32_t lastFlashTime = 0;
-    static const uint32_t FLASH_DURATION = 50;
-    static const uint32_t FLASH_INTERVAL = 500;
+    static const uint32_t FLASH_DURATION_TICKS = 2;  // 50ms at 20ms per tick
+    static const uint32_t FLASH_INTERVAL_TICKS = 25; // 500ms at 20ms per tick
 
-    // Update lastFlashTime when a new flash should start
-    if (currentTime - lastFlashTime >= FLASH_INTERVAL)
-    {
-        lastFlashTime = currentTime;
-    }
-
+    // Calculate flash effect based on animation tick
+    uint32_t flashCycle = animationTick % FLASH_INTERVAL_TICKS;
+    
     // Draw flash effect if within the flash duration
-    if (currentTime - lastFlashTime < FLASH_DURATION)
+    if (flashCycle < FLASH_DURATION_TICKS)
     {
         display->drawFrame(0, 0, 128, 64);
     }

@@ -110,11 +110,12 @@ public:
         return ((1 << barLength) - 1) >> 1;   // (2^length - 1) / 2, first bit always 1
     }
 
-    void updateProgress(uint32_t currentTime, uint32_t lastBeatTime, uint32_t globalBpm) {
+    void updateProgress(uint32_t globalTick) {
         if (!enabled)
             return;
-        float progress = float(currentTime - lastBeatTime) / (60000.0f / globalBpm);
-        beatProgress = progress;
+        // Calculate progress based on the global tick
+        // This is simpler and more consistent than using millis()
+        beatProgress = (globalTick % 1) / 1.0f;
     }
 
     void updateBeat() {

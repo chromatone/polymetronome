@@ -25,16 +25,19 @@ private:
     MetronomeChannel channels[2];
     uint32_t longPressStart = 0;
 
-    uint32_t gcd(uint32_t a, uint32_t b) const {
-        while (b != 0) {
+    uint32_t gcd(uint32_t a, uint32_t b) const
+    {
+        while (b != 0)
+        {
             uint32_t t = b;
             b = a % b;
             a = t;
         }
         return a;
     }
-    
-    uint32_t lcm(uint32_t a, uint32_t b) const {
+
+    uint32_t lcm(uint32_t a, uint32_t b) const
+    {
         return (a * b) / gcd(a, b);
     }
 
@@ -60,92 +63,94 @@ public:
     // Constructor with initialization
     MetronomeState() : channels{MetronomeChannel(0), MetronomeChannel(1)} {}
 
-    const MetronomeChannel &getChannel(uint8_t index) const {
-        return channels[index];
-    }
-    
-    MetronomeChannel &getChannel(uint8_t index) {
+    const MetronomeChannel &getChannel(uint8_t index) const
+    {
         return channels[index];
     }
 
-    void update() {
-        if (isRunning) {
-            uint32_t currentTime = millis();
-            if (lastBeatTime == 0) {
-                lastBeatTime = currentTime;
-            }
+    MetronomeChannel &getChannel(uint8_t index)
+    {
+        return channels[index];
+    }
 
-            // No beat timing logic here anymore - it's handled by the timer ISR
-
-            // Just update progress for display purposes
-            for (auto &channel : channels) {
-                channel.updateProgress(currentTime, lastBeatTime, getEffectiveBpm());
+    void update()
+    {
+        if (isRunning)
+        {
+            for (auto &channel : channels)
+            {
+                channel.updateProgress(globalTick);
             }
         }
     }
 
-    uint8_t getMenuItemsCount() const {
+    uint8_t getMenuItemsCount() const
+    {
         return 6;
     }
-    
-    uint8_t getActiveChannel() const {
+
+    uint8_t getActiveChannel() const
+    {
         return (static_cast<uint8_t>(menuPosition) - MENU_CH1_LENGTH) / 2;
     }
-    
-    bool isChannelSelected() const {
+
+    bool isChannelSelected() const
+    {
         return static_cast<uint8_t>(menuPosition) > MENU_MULTIPLIER;
     }
 
-    bool isBpmSelected() const {
+    bool isBpmSelected() const
+    {
         return navLevel == GLOBAL && menuPosition == MENU_BPM;
     }
-    
-    bool isMultiplierSelected() const {
+
+    bool isMultiplierSelected() const
+    {
         return navLevel == GLOBAL && menuPosition == MENU_MULTIPLIER;
     }
-    
-    bool isLengthSelected(uint8_t channel) const {
+
+    bool isLengthSelected(uint8_t channel) const
+    {
         return navLevel == GLOBAL &&
                menuPosition == static_cast<MenuPosition>(MENU_CH1_LENGTH + channel * 2);
     }
-    
-    bool isPatternSelected(uint8_t channel) const {
+
+    bool isPatternSelected(uint8_t channel) const
+    {
         return navLevel == GLOBAL &&
                menuPosition == static_cast<MenuPosition>(MENU_CH1_PATTERN + channel * 2);
     }
 
-    float getGlobalProgress() const {
-        if (!isRunning || !lastBeatTime)
+    float getProgress() const
+    {
+        if (!isRunning)
             return 0.0f;
-        uint32_t beatInterval = 60000 / getEffectiveBpm();
-        return float(millis() - lastBeatTime) / beatInterval;
+
+        return float(globalTick % getTotalBeats()) / getTotalBeats();
     }
 
-    float getProgress() const {
-        if (!isRunning || !lastBeatTime)
-            return 0.0f;
-        uint32_t beatInterval = 60000 / getEffectiveBpm();
-        uint32_t elapsed = millis() - lastBeatTime;
-        return float(elapsed) / beatInterval;
-    }
-    
-    uint32_t getTotalBeats() const {
+    uint32_t getTotalBeats() const
+    {
         uint32_t result = channels[0].getBarLength();
-        for (uint8_t i = 1; i < CHANNEL_COUNT; i++) {
+        for (uint8_t i = 1; i < CHANNEL_COUNT; i++)
+        {
             result = lcm(result, channels[i].getBarLength());
         }
         return result;
     }
 
-    float getEffectiveBpm() const {
+    float getEffectiveBpm() const
+    {
         return bpm * multiplierValues[currentMultiplierIndex];
     }
-    
-    const char *getCurrentMultiplierName() const {
+
+    const char *getCurrentMultiplierName() const
+    {
         return multiplierNames[currentMultiplierIndex];
     }
-    
-    void adjustMultiplier(int8_t delta) {
+
+    void adjustMultiplier(int8_t delta)
+    {
         currentMultiplierIndex = (currentMultiplierIndex + MULTIPLIER_COUNT + delta) % MULTIPLIER_COUNT;
     }
 };

@@ -39,6 +39,20 @@ public:
     for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
       state->getChannel(i).resetBeat();
     }
+    
+    // Immediately trigger the first beat for all channels
+    for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
+      MetronomeChannel &channel = state->getChannel(i);
+      if (channel.isEnabled()) {
+        // Check if the first beat should be active
+        BeatState currentState = channel.getBeatState();
+        if (currentState != SILENT) {
+          beatTrigger = true;
+          activeBeatChannel = i;
+          activeBeatState = currentState;
+        }
+      }
+    }
 
     float periodSeconds = 60.0f / state->getEffectiveBpm();
     ticker.attach(periodSeconds, timerCallback);

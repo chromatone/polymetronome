@@ -4,12 +4,14 @@
 #include "MetronomeState.h"
 #include "MetronomeTimer.h"
 #include "SolenoidController.h"
+#include "AudioController.h"
 #include "EncoderController.h"
 
 MetronomeState state;
 Display display;
 MetronomeTimer metronomeTimer(&state);
 SolenoidController solenoidController(SOLENOID_PIN);
+AudioController audioController(DAC_PIN);
 EncoderController encoderController(state, metronomeTimer);
 
 // Track previous running state to detect changes
@@ -18,11 +20,13 @@ bool previousRunningState = false;
 void onBeatEvent(uint8_t channel, BeatState beatState)
 {
     solenoidController.processBeat(channel, beatState);
+    audioController.processBeat(channel, beatState);
 }
 
 void setup()
 {
     solenoidController.init();
+    audioController.init();
     display.begin();
     encoderController.begin();
     metronomeTimer.setBeatCallback(onBeatEvent);

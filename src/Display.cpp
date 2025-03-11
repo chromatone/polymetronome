@@ -225,7 +225,7 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, boo
         {
             if (isCurrentBeat && ch.isEnabled())
             {
-                display->drawBox(cellX + 1, y + 1, cellWidth - 4, 7);
+                display->drawBox(cellX + 1, y + 1, cellWidth - 3, 7);
             }
             else
             {

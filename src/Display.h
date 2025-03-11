@@ -16,6 +16,7 @@ private:
 
 public:
     Display();
+    ~Display(); // Added destructor to prevent memory leaks
     void begin();
     void update(const MetronomeState &state);
 };

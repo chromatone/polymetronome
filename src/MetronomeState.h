@@ -5,150 +5,70 @@
 
 enum NavLevel
 {
-    GLOBAL, // BPM, Length, Pattern selection
-    PATTERN // Step editing (future implementation)
+    GLOBAL,
+    PATTERN
+};
+
+enum MenuPosition
+{
+    MENU_BPM = 0,
+    MENU_MULTIPLIER = 1,
+    MENU_CH1_LENGTH = 2,
+    MENU_CH1_PATTERN = 3,
+    MENU_CH2_LENGTH = 4,
+    MENU_CH2_PATTERN = 5
 };
 
 class MetronomeState
 {
 private:
-    MetronomeChannel channels[2] = {MetronomeChannel(0), MetronomeChannel(1)};
+    MetronomeChannel channels[2];
+    uint32_t longPressStart = 0;
+
+    uint32_t gcd(uint32_t a, uint32_t b) const;
+    uint32_t lcm(uint32_t a, uint32_t b) const;
 
 public:
-    // Make multiplier values public so the timer can access them
+    static const uint8_t CHANNEL_COUNT = 2;
+
     const float multiplierValues[MULTIPLIER_COUNT] = MULTIPLIERS;
     const char *multiplierNames[MULTIPLIER_COUNT] = MULTIPLIER_NAMES;
-    uint8_t currentMultiplierIndex = 3; // Default to 1x
 
     uint16_t bpm = 120;
     bool isRunning = false;
     bool isPaused = false;
     volatile uint32_t globalTick = 0; // Made volatile for ISR access
+    uint32_t lastBeatTime = 0;        // Kept public as used by other modules
 
     NavLevel navLevel = GLOBAL;
-    uint8_t menuPosition = 0; // Global: 0=BPM, 1=Multiplier, 2=Ch1Len, 3=Ch1Pat, 4=Ch2Len, 5=Ch2Pat
+    MenuPosition menuPosition = MENU_BPM;
     bool isEditing = false;
-    uint32_t lastBeatTime = 0; // Kept for display/UI purposes
     uint32_t currentBeat = 0;
-    uint32_t longPressStart = 0;
     bool longPressActive = false;
+    uint8_t currentMultiplierIndex = 3;
 
-    const MetronomeChannel &getChannel(uint8_t index) const
-    {
-        return channels[index];
-    }
+    // Constructor - still needed for more complex initialization
+    MetronomeState();
 
-    MetronomeChannel &getChannel(uint8_t index)
-    {
-        return channels[index];
-    }
+    const MetronomeChannel &getChannel(uint8_t index) const;
+    MetronomeChannel &getChannel(uint8_t index);
 
-    // This method is now only used for display updates, not for timing
-    void update()
-    {
-        if (isRunning)
-        {
-            // Update just for display purposes
-            uint32_t currentTime = millis();
-            if (lastBeatTime == 0)
-            {
-                lastBeatTime = currentTime;
-            }
+    void update();
 
-            // No beat timing logic here anymore - it's handled by the timer ISR
+    uint8_t getMenuItemsCount() const;
+    uint8_t getActiveChannel() const;
+    bool isChannelSelected() const;
 
-            // Just update progress for display purposes
-            for (auto &channel : channels)
-            {
-                channel.updateProgress(currentTime, lastBeatTime, getEffectiveBpm());
-            }
-        }
-    }
+    bool isBpmSelected() const;
+    bool isMultiplierSelected() const;
+    bool isLengthSelected(uint8_t channel) const;
+    bool isPatternSelected(uint8_t channel) const;
 
-    uint8_t getMenuItemsCount() const
-    {
-        return 6; // BPM, Multiplier, Ch1Len, Ch1Pat, Ch2Len, Ch2Pat
-    }
+    float getGlobalProgress() const;
+    float getProgress() const;
+    uint32_t getTotalBeats() const;
 
-    uint8_t getActiveChannel() const
-    {
-        return (menuPosition - 2) / 2; // Adjusted for new multiplier position
-    }
-
-    bool isChannelSelected() const
-    {
-        return menuPosition > 1; // Adjusted for new multiplier position
-    }
-
-    // Helper methods to determine which parameter is selected
-    bool isBpmSelected() const { return navLevel == GLOBAL && menuPosition == 0; }
-    bool isMultiplierSelected() const { return navLevel == GLOBAL && menuPosition == 1; }
-    bool isLengthSelected(uint8_t channel) const
-    {
-        return navLevel == GLOBAL && menuPosition == (channel * 2 + 2);
-    }
-    bool isPatternSelected(uint8_t channel) const
-    {
-        return navLevel == GLOBAL && menuPosition == (channel * 2 + 3);
-    }
-
-    // Calculate progress for global cycle
-    float getGlobalProgress() const
-    {
-        if (!isRunning || !lastBeatTime)
-            return 0.0f;
-        uint32_t beatInterval = 60000 / getEffectiveBpm();
-        return float(millis() - lastBeatTime) / beatInterval;
-    }
-
-    // Add new helper methods
-    uint32_t gcd(uint32_t a, uint32_t b) const
-    {
-        while (b != 0)
-        {
-            uint32_t t = b;
-            b = a % b;
-            a = t;
-        }
-        return a;
-    }
-
-    uint32_t lcm(uint32_t a, uint32_t b) const
-    {
-        return (a * b) / gcd(a, b);
-    }
-
-    uint32_t getTotalBeats() const
-    {
-        uint32_t result = channels[0].getBarLength();
-        for (uint8_t i = 1; i < 2; i++)
-        {
-            result = lcm(result, channels[i].getBarLength());
-        }
-        return result;
-    }
-
-    float getProgress() const
-    {
-        if (!isRunning || !lastBeatTime)
-            return 0.0f;
-        uint32_t beatInterval = 60000 / getEffectiveBpm();
-        uint32_t elapsed = millis() - lastBeatTime;
-        return float(elapsed) / beatInterval;
-    }
-
-    float getEffectiveBpm() const
-    {
-        return bpm * multiplierValues[currentMultiplierIndex];
-    }
-
-    const char *getCurrentMultiplierName() const
-    {
-        return multiplierNames[currentMultiplierIndex];
-    }
-
-    void adjustMultiplier(int8_t delta)
-    {
-        currentMultiplierIndex = (currentMultiplierIndex + MULTIPLIER_COUNT + delta) % MULTIPLIER_COUNT;
-    }
+    float getEffectiveBpm() const;
+    const char *getCurrentMultiplierName() const;
+    void adjustMultiplier(int8_t delta);
 };

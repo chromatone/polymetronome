@@ -6,6 +6,14 @@ Display::Display()
     display = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
 }
 
+Display::~Display()
+{
+    if (display)
+    {
+        delete display;
+    }
+}
+
 void Display::begin()
 {
     display->begin();
@@ -138,26 +146,16 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
         }
     }
 
-    // Invert colors if we should blink
+    // Fixed blinking logic - always draw the text first
+    display->drawStr(boxX + 2, y + 8, buffer);
+
+    // Handle blinking effect - redraw with inverted colors if needed
     if (shouldBlink)
     {
         display->drawBox(boxX, y - 1, boxWidth, 12);
-        display->setDrawColor(0); // White text on black
-        display->drawStr(boxX + 2, y + 8, buffer);
-        display->setDrawColor(1); // Back to normal
-    }
-    else
-    {
-        // Only draw the frame when blinking or selected
-        if (isLengthSelected)
-        {
-            display->drawStr(boxX + 2, y + 8, buffer);
-        }
-        else
-        {
-            // Just draw the number without the frame
-            display->drawStr(boxX + 2, y + 8, buffer);
-        }
+        display->setDrawColor(0);                  // White text on black
+        display->drawStr(boxX + 2, y + 8, buffer); // Redraw text in inverted color
+        display->setDrawColor(1);                  // Back to normal
     }
 
     // Add pattern counter (current/total)
@@ -188,9 +186,13 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
 
 void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, bool isEditing)
 {
-    uint8_t cellWidth = 124 / ch.getBarLength();
+    uint8_t barLength = ch.getBarLength();
+    uint8_t cellWidth = (barLength > 0) ? (124 / barLength) : 0;
 
-    for (uint8_t i = 0; i < ch.getBarLength(); i++)
+    if (cellWidth == 0)
+        return; // Safety check
+
+    for (uint8_t i = 0; i < barLength; i++)
     {
         uint8_t cellX = x + (i * cellWidth);
         bool isCurrentBeat = (i == ch.getCurrentBeat());
@@ -216,7 +218,7 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, boo
         {
             // Pulsing dot for silent active beat
             float pulse = (millis() % 500) / 500.0f; // 0.0 to 1.0 over 500ms
-            uint8_t radius = 1 + pulse;
+            uint8_t radius = 1 + uint8_t(pulse);
             display->drawDisc(cellX + cellWidth / 2, y + 4, radius);
         }
         else
@@ -230,7 +232,15 @@ void Display::drawFlash(uint32_t currentTime)
 {
     static uint32_t lastFlashTime = 0;
     static const uint32_t FLASH_DURATION = 50;
+    static const uint32_t FLASH_INTERVAL = 500;
 
+    // Update lastFlashTime when a new flash should start
+    if (currentTime - lastFlashTime >= FLASH_INTERVAL)
+    {
+        lastFlashTime = currentTime;
+    }
+
+    // Draw flash effect if within the flash duration
     if (currentTime - lastFlashTime < FLASH_DURATION)
     {
         display->drawFrame(0, 0, 128, 64);

@@ -24,7 +24,6 @@ public:
     digitalWrite(solenoidPin, LOW);
   }
 
-  // Process a beat event
   void processBeat(uint8_t channel, BeatState beatState)
   {
     if (beatState == ACCENT)
@@ -32,18 +31,15 @@ public:
       digitalWrite(solenoidPin, HIGH);
       delayMicroseconds(accentPulseMs * 1000);
       digitalWrite(solenoidPin, LOW);
-      Serial.println("ACCENT beat");
     }
     else if (beatState == WEAK)
     {
       digitalWrite(solenoidPin, HIGH);
       delayMicroseconds(weakPulseMs * 1000);
       digitalWrite(solenoidPin, LOW);
-      Serial.println("WEAK beat");
     }
   }
 
-  // Set pulse durations
   void setPulseDurations(uint16_t weakMs, uint16_t accentMs)
   {
     weakPulseMs = weakMs;

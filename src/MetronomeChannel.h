@@ -74,7 +74,6 @@ public:
         }
     }
 
-    // Add getters and setters
     uint8_t getId() const { return id; }
     uint8_t getBarLength() const { return barLength; }
     uint16_t getPattern() const { return pattern; }

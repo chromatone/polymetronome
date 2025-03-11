@@ -77,7 +77,7 @@ public:
     for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
       MetronomeChannel &channel = state->getChannel(i);
       if (channel.isEnabled()) {
-        channel.updateBeat();
+        channel.updateBeat(state->globalTick);
 
         BeatState currentState = channel.getBeatState();
         if (currentState != SILENT) {

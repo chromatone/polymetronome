@@ -26,17 +26,11 @@ private:
 public:
     MetronomeChannel(uint8_t channelId) : id(channelId) {}
 
-    void update(uint32_t globalBpm, uint32_t currentTime) {
+    void update(uint32_t globalBpm, uint32_t globalTick) {
         if (!enabled)
             return;
-
-        uint32_t effectiveBpm = globalBpm * multiplier;
-        uint32_t beatInterval = 60000 / effectiveBpm;
-
-        if (currentTime - lastBeatTime >= beatInterval) {
-            currentBeat = (currentBeat + 1) % barLength;
-            lastBeatTime = currentTime;
-        }
+        currentBeat = globalTick % barLength;
+        lastBeatTime = globalTick;
     }
 
     BeatState getBeatState() const {
@@ -118,10 +112,10 @@ public:
         beatProgress = (globalTick % 1) / 1.0f;
     }
 
-    void updateBeat() {
+    void updateBeat(uint32_t globalTick) {
         if (!enabled)
             return;
-        currentBeat = (currentBeat + 1) % barLength;
+        currentBeat = globalTick % barLength;
     }
 
     float getProgress() const {

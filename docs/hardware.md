@@ -19,7 +19,7 @@
 | Encoder B      | 18  | Rotary Encoder |
 | Encoder Button | 16  | Push Button    |
 | Start Button   | 26  | Control        |
-| Stop Button    | 25  | Control        |
+| Stop Button    | 33  | Control        |
 | Solenoid       | 13  | MOSFET Gate    |
 
 ## Solenoid Circuit

@@ -142,8 +142,8 @@ void EncoderController::handleRotaryEncoder()
       }
       else if (state.isPatternSelected(channelIndex))
       {
-        uint16_t newPattern = channel.getPattern() + diff;
-        channel.setPattern(constrain(newPattern, 0, channel.getMaxPattern()));
+        int newPattern = (static_cast<int>(channel.getPattern()) + channel.getMaxPattern() + 1 + diff) % (channel.getMaxPattern() + 1);
+        channel.setPattern(static_cast<uint16_t>(newPattern));
       }
     }
 

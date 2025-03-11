@@ -19,8 +19,7 @@ private:
   BeatCallback beatCallback = nullptr;
 
   static MetronomeTimer *_instance;
-
-  static void IRAM_ATTR timerCallback();
+  static void IRAM_ATTR timerCallback(); // Just declaration, implementation in cpp
 
 public:
   MetronomeTimer(MetronomeState *statePtr) : state(statePtr) { _instance = this; }
@@ -30,13 +29,60 @@ public:
     _instance = (_instance == this) ? nullptr : _instance;
   }
 
-  void start();
-  void stop() { ticker.detach(); }
-  void updateTiming();
+  void start() {
+    ticker.detach();
 
-  void IRAM_ATTR handleInterrupt();
+    state->globalTick = 0;
+    state->lastBeatTime = millis();
+
+    for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
+      state->getChannel(i).resetBeat();
+    }
+
+    float periodSeconds = 60.0f / state->getEffectiveBpm();
+    ticker.attach(periodSeconds, timerCallback);
+  }
+  
+  void stop() { ticker.detach(); }
+  
+  void updateTiming() {
+    if (ticker.active()) {
+      float periodSeconds = 60.0f / state->getEffectiveBpm();
+      ticker.detach();
+      ticker.attach(periodSeconds, timerCallback);
+    }
+  }
+
+  void IRAM_ATTR handleInterrupt() {
+    state->globalTick++;
+    state->lastBeatTime = millis();
+
+    for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
+      MetronomeChannel &channel = state->getChannel(i);
+      if (channel.isEnabled()) {
+        channel.updateBeat();
+
+        BeatState currentState = channel.getBeatState();
+        if (currentState != SILENT) {
+          beatTrigger = true;
+          activeBeatChannel = i;
+          activeBeatState = currentState;
+        }
+      }
+    }
+  }
+  
   void setBeatCallback(BeatCallback callback) { beatCallback = callback; }
-  void processBeat();
+  
+  void processBeat() {
+    if (beatTrigger && beatCallback) {
+      uint8_t channel = activeBeatChannel;
+      BeatState state = activeBeatState;
+      beatTrigger = false;
+
+      beatCallback(channel, state);
+    }
+  }
 
   bool hasPendingBeat() { return beatTrigger; }
   BeatState getActiveBeatState() { return activeBeatState; }

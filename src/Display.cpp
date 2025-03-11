@@ -2,7 +2,7 @@
 #include "config.h"
 
 // Initialize static member
-Display* Display::_instance = nullptr;
+Display *Display::_instance = nullptr;
 
 Display::Display()
 {
@@ -66,11 +66,6 @@ void Display::update(const MetronomeState &state)
     display->drawHLine(1, 40, 126);
 
     drawChannelBlock(state, 1, 42);
-
-    if (state.isRunning)
-    {
-        drawFlash();
-    }
 
     display->sendBuffer();
 }
@@ -231,11 +226,4 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, boo
             display->drawPixel(cellX + cellWidth / 2, y + 4);
         }
     }
-}
-
-// Remove drawFlash as it's no longer needed - we've integrated the flashing
-// functionality directly into drawGlobalRow and drawChannelBlock
-void Display::drawFlash()
-{
-    // Empty implementation - functionality moved to individual sections
 }

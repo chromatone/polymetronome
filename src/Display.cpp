@@ -196,18 +196,23 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
         }
     }
     display->drawHLine(1, patternY, 126);
-    drawBeatGrid(2, patternY + 1, channel, false);
+    
+    // Get max length between both channels for polymeter visualization
+    uint8_t maxLength = max(state.getChannel(0).getBarLength(), state.getChannel(1).getBarLength());
+    drawBeatGrid(2, patternY + 1, channel, maxLength, false);
     display->setDrawColor(1);
 }
 
-void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, bool isEditing)
+void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, uint8_t maxLength, bool isEditing)
 {
     uint8_t barLength = ch.getBarLength();
-    uint8_t cellWidth = (barLength > 0) ? (126 / barLength) : 0;
+    // Use maxLength to calculate cell width for consistent polymeter visualization
+    uint8_t cellWidth = (maxLength > 0) ? (126 / maxLength) : 0;
 
     if (cellWidth == 0)
         return; // Safety check
 
+    // Draw only up to this channel's bar length
     for (uint8_t i = 0; i < barLength; i++)
     {
         uint8_t cellX = x + (i * cellWidth);
@@ -220,6 +225,10 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, boo
         }
 
         display->drawVLine(cellX - 1, y, 10);
+
+        if (i == barLength - 1) {
+            display->drawVLine(cellX + cellWidth - 1, y, 10); // Closing vertical line for the last beat
+        }
 
         if (isBeatActive)
         {

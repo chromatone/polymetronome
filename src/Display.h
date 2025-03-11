@@ -19,7 +19,7 @@ private:
     void drawGlobalRow(const MetronomeState &state);
     void drawGlobalProgress(const MetronomeState &state);
     void drawChannelBlock(const MetronomeState &state, uint8_t channelIndex, uint8_t y);
-    void drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, bool isEditing);
+    void drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, uint8_t maxLength, bool isEditing);
 
 public:
     Display();

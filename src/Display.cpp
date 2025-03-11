@@ -79,39 +79,45 @@ void Display::drawGlobalRow(const MetronomeState &state)
 {
     char buffer[32];
 
+    // Global beat indicator (4px wide block on the left)
+    if (state.isRunning && (animationTick % 25) < 2) // Flash for 40ms every 500ms
+    {
+        display->drawBox(1, 1, 4, 12);
+    }
+
     // BPM display with selection frame
     sprintf(buffer, "%d BPM", state.bpm);
     if (state.isBpmSelected())
     {
-        display->drawFrame(1, 1, 45, 12);
+        display->drawFrame(7, 1, 45, 12);
         if (state.isEditing)
         {
-            display->drawBox(1, 1, 45, 12);
+            display->drawBox(7, 1, 45, 12);
             display->setDrawColor(0);
         }
     }
-    display->drawStr(3, 11, buffer);
+    display->drawStr(9, 11, buffer);
     display->setDrawColor(1);
 
     // Multiplier display
     sprintf(buffer, "x%s", state.getCurrentMultiplierName());
     if (state.isMultiplierSelected())
     {
-        display->drawFrame(49, 1, 30, 12);
+        display->drawFrame(55, 1, 30, 12);
         if (state.isEditing)
         {
-            display->drawBox(49, 1, 30, 12);
+            display->drawBox(55, 1, 30, 12);
             display->setDrawColor(0);
         }
     }
-    display->drawStr(51, 11, buffer);
+    display->drawStr(57, 11, buffer);
     display->setDrawColor(1);
 
     // Beat counter on the right
     uint32_t totalBeats = state.getTotalBeats();
     uint32_t currentBeat = (state.globalTick % totalBeats) + 1;
     sprintf(buffer, "%lu/%lu", currentBeat, totalBeats);
-    display->drawStr(86, 11, buffer);
+    display->drawStr(92, 11, buffer);
 }
 
 void Display::drawGlobalProgress(const MetronomeState &state)
@@ -130,75 +136,40 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
     const MetronomeChannel &channel = state.getChannel(channelIndex);
     char buffer[32];
 
-    // Length display with blinking effect when active
-    bool isActive = channel.isEnabled();
-    bool shouldBlink = false;
-
-    if (isActive && state.isRunning)
+    // Channel beat indicator (4px wide block on the left)
+    if (channel.isEnabled() && state.isRunning)
     {
-        // Determine if we should blink based on beat state and animation tick
         BeatState beatState = channel.getBeatState();
-        uint32_t blinkDurationTicks = 0;
-
-        switch (beatState)
+        if (beatState != SILENT)
         {
-        case ACCENT:
-            // Convert ms to animation ticks (20ms per tick)
-            blinkDurationTicks = (ACCENT_PULSE_MS * 4) / 20;
-            break;
-        case WEAK:
-            // Convert ms to animation ticks (20ms per tick)
-            blinkDurationTicks = (SOLENOID_PULSE_MS * 4) / 20;
-            break;
-        default:
-            blinkDurationTicks = 0;
-            break;
+            display->drawBox(1, y - 1, 4, 21); // Full height of the channel block
         }
-
-        // Calculate how many ticks have passed since the last beat
-        uint32_t beatTick = state.globalTick * (1000 / (state.getEffectiveBpm() / 60));
-        uint32_t ticksSinceLastBeat = animationTick - beatTick;
-        
-        shouldBlink = (ticksSinceLastBeat < blinkDurationTicks);
     }
 
     // Length row
     sprintf(buffer, "%02d", channel.getBarLength());
     bool isLengthSelected = state.isLengthSelected(channelIndex);
 
-    // Box for length
-    uint8_t boxWidth = 20;
-    uint8_t boxX = 1; // Adjusted for border
-
+    // Box for length (shifted right by 4px)
     if (isLengthSelected)
     {
-        display->drawFrame(1, y - 1, 126, 12); // Adjusted for border
+        display->drawFrame(7, y - 1, 120, 12);
         if (state.isEditing)
         {
-            display->drawBox(1, y - 1, 126, 12);
+            display->drawBox(7, y - 1, 120, 12);
             display->setDrawColor(0);
         }
     }
 
-    // Fixed blinking logic - always draw the text first
-    display->drawStr(boxX + 2, y + 8, buffer);
-
-    // Handle blinking effect - redraw with inverted colors if needed
-    if (shouldBlink)
-    {
-        display->drawBox(boxX, y - 1, boxWidth, 12);
-        display->setDrawColor(0);                  // White text on black
-        display->drawStr(boxX + 2, y + 8, buffer); // Redraw text in inverted color
-        display->setDrawColor(1);                  // Back to normal
-    }
+    // Draw length text
+    display->drawStr(9, y + 8, buffer);
+    display->setDrawColor(1);
 
     // Add pattern counter (current/total)
     uint16_t currentPattern = channel.getPattern() + 1;
     uint16_t maxPattern = channel.getMaxPattern() + 1;
     sprintf(buffer, "%u/%u", currentPattern, maxPattern);
-    display->drawStr(85, y + 8, buffer);
-
-    display->setDrawColor(1);
+    display->drawStr(91, y + 8, buffer);
 
     // Pattern row
     uint8_t patternY = y + 11;
@@ -206,15 +177,15 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
 
     if (isPatternSelected)
     {
-        display->drawFrame(1, patternY, 126, 10); // Adjusted for border
+        display->drawFrame(7, patternY, 120, 10);
         if (state.isEditing)
         {
-            display->drawBox(1, patternY, 126, 10);
+            display->drawBox(7, patternY, 120, 10);
             display->setDrawColor(0);
         }
     }
 
-    drawBeatGrid(2, patternY + 1, channel, false);
+    drawBeatGrid(8, patternY + 1, channel, false);
     display->setDrawColor(1);
 }
 
@@ -262,17 +233,9 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, boo
     }
 }
 
+// Remove drawFlash as it's no longer needed - we've integrated the flashing
+// functionality directly into drawGlobalRow and drawChannelBlock
 void Display::drawFlash()
 {
-    static const uint32_t FLASH_DURATION_TICKS = 2;  // 50ms at 20ms per tick
-    static const uint32_t FLASH_INTERVAL_TICKS = 25; // 500ms at 20ms per tick
-
-    // Calculate flash effect based on animation tick
-    uint32_t flashCycle = animationTick % FLASH_INTERVAL_TICKS;
-    
-    // Draw flash effect if within the flash duration
-    if (flashCycle < FLASH_DURATION_TICKS)
-    {
-        display->drawFrame(0, 0, 128, 64);
-    }
+    // Empty implementation - functionality moved to individual sections
 }

@@ -75,9 +75,17 @@ void Display::drawGlobalRow(const MetronomeState &state)
     char buffer[32];
 
     // Global beat indicator (4px wide block on the left)
-    if (state.isRunning && (animationTick % 25) < 2) // Flash for 40ms every 500ms
+    if (state.isRunning)
     {
-        display->drawBox(1, 1, 4, 12);
+        // Calculate flash duration based on BPM and multiplier
+        float beatDuration = 60000.0f / state.getEffectiveBpm();           // in milliseconds
+        float flashDuration = beatDuration * 0.5f;                         // 25% of beat duration
+        uint32_t animTime = (animationTick * 20) % uint32_t(beatDuration); // 20ms per animation tick
+
+        if (animTime < flashDuration)
+        {
+            display->drawBox(1, 1, 4, 12);
+        }
     }
 
     // BPM display with selection frame
@@ -137,7 +145,15 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
         BeatState beatState = channel.getBeatState();
         if (beatState != SILENT)
         {
-            display->drawBox(1, y - 1, 4, 21); // Full height of the channel block
+            // Calculate flash duration - shorter than half the beat length
+            float beatDuration = 60000.0f / state.getEffectiveBpm();           // in milliseconds
+            float flashDuration = beatDuration * 0.5f;                         // 50% of beat duration
+            uint32_t animTime = (animationTick * 20) % uint32_t(beatDuration); // 20ms per animation tick
+
+            if (animTime < flashDuration)
+            {
+                display->drawBox(1, y - 1, 4, 12); // Only the height of the upper row
+            }
         }
     }
 
@@ -172,22 +188,22 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
 
     if (isPatternSelected)
     {
-        display->drawFrame(7, patternY, 120, 10);
+        display->drawFrame(1, patternY, 126, 10);
         if (state.isEditing)
         {
-            display->drawBox(7, patternY, 120, 10);
+            display->drawBox(1, patternY, 126, 10);
             display->setDrawColor(0);
         }
     }
-
-    drawBeatGrid(8, patternY + 1, channel, false);
+    display->drawHLine(1, patternY, 126);
+    drawBeatGrid(2, patternY + 1, channel, false);
     display->setDrawColor(1);
 }
 
 void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, bool isEditing)
 {
     uint8_t barLength = ch.getBarLength();
-    uint8_t cellWidth = (barLength > 0) ? (124 / barLength) : 0;
+    uint8_t cellWidth = (barLength > 0) ? (126 / barLength) : 0;
 
     if (cellWidth == 0)
         return; // Safety check
@@ -203,15 +219,17 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, boo
             display->drawFrame(cellX, y, cellWidth - 1, 8);
         }
 
+        display->drawVLine(cellX - 1, y, 10);
+
         if (isBeatActive)
         {
             if (isCurrentBeat && ch.isEnabled())
             {
-                display->drawBox(cellX + 2, y + 2, cellWidth - 5, 4);
+                display->drawBox(cellX + 1, y + 1, cellWidth - 4, 7);
             }
             else
             {
-                display->drawDisc(cellX + cellWidth / 2, y + 4, 2);
+                display->drawDisc(cellX + cellWidth / 2 - 1, y + 4, 2);
             }
         }
         else if (isCurrentBeat && ch.isEnabled())
@@ -219,11 +237,11 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, boo
             // Pulsing dot for silent active beat
             float pulse = (millis() % 500) / 500.0f; // 0.0 to 1.0 over 500ms
             uint8_t radius = 1 + uint8_t(pulse);
-            display->drawDisc(cellX + cellWidth / 2, y + 4, radius);
+            display->drawDisc(cellX + cellWidth / 2 - 1, y + 4, radius);
         }
         else
         {
-            display->drawPixel(cellX + cellWidth / 2, y + 4);
+            display->drawPixel(cellX + cellWidth / 2 - 1, y + 4);
         }
     }
 }

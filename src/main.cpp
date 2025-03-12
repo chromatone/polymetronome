@@ -32,17 +32,21 @@ void onClockPulse(uint32_t tick)
     uint32_t quarterNoteTick = tick / 96;
 
     // Only process on quarter note boundaries
-    if (tick % 96 == 0) {
+    if (tick % 96 == 0)
+    {
         state.globalTick = quarterNoteTick;
         state.lastBeatTime = quarterNoteTick;
 
-        for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
+        for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++)
+        {
             MetronomeChannel &channel = state.getChannel(i);
-            if (channel.isEnabled()) {
+            if (channel.isEnabled())
+            {
                 channel.updateBeat(quarterNoteTick);
 
                 BeatState currentState = channel.getBeatState();
-                if (currentState != SILENT) {
+                if (currentState != SILENT)
+                {
                     onBeatEvent(i, currentState);
                 }
             }
@@ -71,19 +75,20 @@ void setup()
 void loop()
 {
     // Check if running state has changed
-    if (state.isRunning != previousRunningState) {
+    if (state.isRunning != previousRunningState)
+    {
         previousRunningState = state.isRunning;
 
         // Reset animation ticker when state changes
-        if (state.isRunning) {
+        if (state.isRunning)
+        {
             display.startAnimation();
         }
     }
 
     encoderController.handleControls();
-    
-    
-    display.update(state); 
+
+    display.update(state);
     // Prevent watchdog timeouts
     yield();
 }

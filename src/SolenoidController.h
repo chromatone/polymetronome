@@ -44,17 +44,16 @@ public:
 
   void processBeat(uint8_t channel, BeatState beatState)
   {
-    // Only process if no pulse is currently active
- 
+
     if (beatState == ACCENT || beatState == WEAK)
-    { 
-      digitalWrite( (channel ? solenoidPin:solenoidPin2), HIGH);
+    {
+      digitalWrite((channel ? solenoidPin : solenoidPin2), HIGH);
 
       // Schedule turning off the solenoid after the appropriate duration
       float pulseDuration = (beatState == ACCENT) ? (accentPulseMs / 1000.0f) : (weakPulseMs / 1000.0f);
 
       pulseTicker.once(pulseDuration, endPulseCallback);
-    } 
+    }
   }
 
   void setPulseDurations(uint16_t weakMs, uint16_t accentMs)

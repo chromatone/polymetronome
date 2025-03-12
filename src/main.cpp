@@ -58,7 +58,6 @@ void setup()
     uClock.setOnPPQN(onClockPulse);
     uClock.setPPQN(uClock.PPQN_96);
     uClock.setTempo(state.getEffectiveBpm());
-    uClock.start();
 
     // Start animation ticker for UI effects
     display.startAnimation();

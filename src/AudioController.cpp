@@ -67,3 +67,24 @@ void AudioController::handleMixer()
     dac_output_voltage(DAC_CHANNEL_1, 0);
   }
 }
+
+void AudioController::processBeat(uint8_t channel, BeatState beatState) {
+    if (channel >= MetronomeState::CHANNEL_COUNT)
+        return;
+
+    if (beatState == ACCENT || beatState == WEAK) {
+        // Set the channel sound as active
+        channelSounds[channel].active = true;
+
+        // Use different volumes for accent vs normal beats
+        channelSounds[channel].volume = (beatState == ACCENT) ? toneVolume : (toneVolume / 4);
+
+        // Use different frequencies for accent vs normal beats
+        channelSounds[channel].frequency = (beatState == ACCENT) ? channelFrequencies[channel] : (channelFrequencies[channel] / 2);
+
+        // Record start time and duration
+        channelSounds[channel].startTime = millis();
+        channelSounds[channel].duration = (beatState == ACCENT) ? (soundDurationMs * 2.0) : soundDurationMs;
+
+    }
+}

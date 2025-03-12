@@ -75,32 +75,9 @@ public:
     mixerTicker.attach_ms(AUDIO_MIXER_INTERVAL_MS, mixerCallback);
   }
 
-  void processBeat(uint8_t channel, BeatState beatState)
-  {
-    if (channel >= MetronomeState::CHANNEL_COUNT)
-      return;
+  void processBeat(uint8_t channel, BeatState beatState);
 
-    if (beatState == ACCENT || beatState == WEAK)
-    {
-      // Set the channel sound as active
-      channelSounds[channel].active = true;
-
-      // Use different volumes for accent vs normal beats
-      channelSounds[channel].volume = (beatState == ACCENT) ? toneVolume : (toneVolume / 2);
-
-      // Set the frequency for this channel
-      channelSounds[channel].frequency = channelFrequencies[channel];
-
-      // Record start time and duration
-      channelSounds[channel].startTime = millis();
-      channelSounds[channel].duration = soundDurationMs;
-    }
-  }
-
-  void IRAM_ATTR handleEndSound()
-  {
-    // This is now handled by the mixer callback based on duration
-  }
+  void IRAM_ATTR handleEndSound();
 
   // Declaration only - implementation in CPP file to avoid IRAM issues
   void handleMixer();

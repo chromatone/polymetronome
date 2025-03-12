@@ -15,7 +15,10 @@ BeatState MetronomeChannel::getBeatState() const {
     if (!enabled)
         return SILENT;
     uint16_t fullPattern = (pattern << 1) | 1; // First beat always on
-    return (fullPattern >> currentBeat) & 1 ? ACCENT : SILENT;
+    if (currentBeat == 0) {
+        return ACCENT;
+    }
+    return (fullPattern >> currentBeat) & 1 ? WEAK : SILENT;
 }
 
 void MetronomeChannel::toggleBeat(uint8_t step) {

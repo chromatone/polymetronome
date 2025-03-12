@@ -6,7 +6,8 @@
 #define ENCODER_BTN 16
 #define BTN_START 26
 #define BTN_STOP 33
-#define SOLENOID_PIN 13
+#define SOLENOID_PIN 23
+#define SOLENOID_PIN2 19
 #define DAC_PIN 25 // ESP32 DAC1 pin (GPIO25)
 
 // Display I2C pins

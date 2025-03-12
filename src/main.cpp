@@ -1,6 +1,10 @@
 #include <Arduino.h>
 #include <uClock.h>
 #include "config.h"
+#ifdef MAX_BPM
+#undef MAX_BPM
+#define MAX_BPM MAX_GLOBAL_BPM
+#endif
 #include "Display.h"
 #include "MetronomeState.h"
 #include "SolenoidController.h"
@@ -9,7 +13,7 @@
 
 MetronomeState state;
 Display display;
-SolenoidController solenoidController(SOLENOID_PIN);
+SolenoidController solenoidController(SOLENOID_PIN, SOLENOID_PIN2);
 AudioController audioController(DAC_PIN);
 EncoderController encoderController(state);
 
@@ -48,6 +52,7 @@ void onClockPulse(uint32_t tick)
 
 void setup()
 {
+    Serial.begin(115200);
     solenoidController.init();
     audioController.init();
     display.begin();
@@ -76,8 +81,9 @@ void loop()
     }
 
     encoderController.handleControls();
-    display.update(state);
-
+    
+    
+    display.update(state); 
     // Prevent watchdog timeouts
     yield();
 }

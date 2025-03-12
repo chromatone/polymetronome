@@ -10,6 +10,7 @@ class SolenoidController
 {
 private:
   uint8_t solenoidPin;
+  uint8_t solenoidPin2;
   uint16_t accentPulseMs;
   uint16_t weakPulseMs;
   Ticker pulseTicker;
@@ -19,8 +20,8 @@ private:
   static void IRAM_ATTR endPulseCallback(); // Just declaration, implementation in cpp
 
 public:
-  SolenoidController(uint8_t pin, uint16_t weakMs = SOLENOID_PULSE_MS, uint16_t accentMs = ACCENT_PULSE_MS)
-      : solenoidPin(pin), weakPulseMs(weakMs), accentPulseMs(accentMs)
+  SolenoidController(uint8_t pin_1, uint8_t pin_2, uint16_t weakMs = SOLENOID_PULSE_MS, uint16_t accentMs = ACCENT_PULSE_MS)
+      : solenoidPin(pin_1), solenoidPin2(pin_2), weakPulseMs(weakMs), accentPulseMs(accentMs)
   {
     _instance = this;
   }
@@ -36,25 +37,24 @@ public:
   void init()
   {
     pinMode(solenoidPin, OUTPUT);
+    pinMode(solenoidPin2, OUTPUT);
     digitalWrite(solenoidPin, LOW);
+    digitalWrite(solenoidPin2, LOW);
   }
 
   void processBeat(uint8_t channel, BeatState beatState)
   {
     // Only process if no pulse is currently active
-    if (!pulseActive)
-    {
-      if (beatState == ACCENT || beatState == WEAK)
-      {
-        pulseActive = true;
-        digitalWrite(solenoidPin, HIGH);
+ 
+    if (beatState == ACCENT || beatState == WEAK)
+    { 
+      digitalWrite( (channel ? solenoidPin:solenoidPin2), HIGH);
 
-        // Schedule turning off the solenoid after the appropriate duration
-        float pulseDuration = (beatState == ACCENT) ? (accentPulseMs / 1000.0f) : (weakPulseMs / 1000.0f);
+      // Schedule turning off the solenoid after the appropriate duration
+      float pulseDuration = (beatState == ACCENT) ? (accentPulseMs / 1000.0f) : (weakPulseMs / 1000.0f);
 
-        pulseTicker.once(pulseDuration, endPulseCallback);
-      }
-    }
+      pulseTicker.once(pulseDuration, endPulseCallback);
+    } 
   }
 
   void setPulseDurations(uint16_t weakMs, uint16_t accentMs)

@@ -38,10 +38,29 @@ A modular multi-track hardware metronome system capable of running multiple inde
 - [ ] Settings storage
 - [ ] Wireless control
 
-1. Hardware Improvements
+3. Hardware Improvements
 
 - [ ] PCB design
 - [ ] Case design
 - [ ] Power supply optimization
 - [ ] Multiple solenoid support
 - [ ] LED indicators
+
+4. Modular system:
+
+- [ ] Connectors
+- [ ] Solenoids
+- [ ] Piezo buzzers
+- [ ] Speakers/amplifiers
+- [ ] LED arrays/strips
+- [ ] LCD displays
+- [ ] MIDI interface modules
+- [ ] Rotary encoders
+- [ ] Buttons/switches
+- [ ] Potentiometers
+- [ ] Accelerometers
+- [ ] Wireless modules (WiFi/BLE)
+- [ ] SD card readers
+- [ ] External DACs
+- [ ] CV/Gate outputs
+- [ ] USB interfaces

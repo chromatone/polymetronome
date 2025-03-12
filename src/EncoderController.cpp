@@ -1,4 +1,5 @@
 #include "EncoderController.h"
+#include <uClock.h>
 
 // Global pointer for ISR to access
 EncoderController *globalEncoderController = nullptr;
@@ -12,8 +13,8 @@ void IRAM_ATTR globalEncoderISR()
   }
 }
 
-EncoderController::EncoderController(MetronomeState &state, MetronomeTimer &timer)
-    : state(state), timer(timer)
+EncoderController::EncoderController(MetronomeState &state)
+    : state(state)
 {
   globalEncoderController = this;
 }
@@ -66,17 +67,16 @@ void EncoderController::handleStartButton()
 
   if (startBtn != lastStartBtn && startBtn == LOW)
   {
-
     state.isRunning = !state.isRunning;
     state.isPaused = !state.isRunning;
 
     if (state.isRunning)
     {
-      timer.start();
+      uClock.start();
     }
     else
     {
-      timer.stop();
+      uClock.stop();
     }
   }
   lastStartBtn = startBtn;
@@ -88,14 +88,13 @@ void EncoderController::handleStopButton()
 
   if (stopBtn != lastStopBtn && stopBtn == LOW)
   {
-
     state.isRunning = false;
     state.isPaused = false;
     state.currentBeat = 0;
     state.globalTick = 0;
     state.lastBeatTime = 0;
 
-    timer.stop();
+    uClock.stop();
 
     for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++)
     {
@@ -123,7 +122,7 @@ void EncoderController::handleRotaryEncoder()
 
     if (state.isBpmSelected())
     {
-      state.bpm = constrain(state.bpm + diff, MIN_BPM, MAX_BPM);
+      state.bpm = constrain(state.bpm + diff, MIN_GLOBAL_BPM, MAX_GLOBAL_BPM);
       needTimerUpdate = true;
     }
     else if (state.isMultiplierSelected())
@@ -149,7 +148,7 @@ void EncoderController::handleRotaryEncoder()
 
     if (needTimerUpdate && state.isRunning)
     {
-      timer.updateTiming();
+      uClock.setTempo(state.getEffectiveBpm());
     }
   }
   else

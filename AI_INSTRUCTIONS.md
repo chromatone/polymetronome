@@ -143,8 +143,8 @@ Break down the project into these independent modules:
 #define DISPLAY_SCL 22
 
 // Timing
-#define MIN_BPM 20
-#define MAX_BPM 500
+#define MIN_GLOBAL_BPM 20
+#define MAX_GLOBAL_BPM 500
 
 // UI
 #define SCREEN_WIDTH 128

@@ -14,8 +14,8 @@
 #define DISPLAY_SCL 22
 
 // Timing constants
-#define MIN_BPM 20
-#define MAX_BPM 500
+#define MIN_GLOBAL_BPM 20
+#define MAX_GLOBAL_BPM 500
 #define DEFAULT_BPM 120
 #define MAX_BEATS 16
 #define SOLENOID_PULSE_MS 5

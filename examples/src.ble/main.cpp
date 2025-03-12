@@ -10,8 +10,8 @@
 #define NORMAL_DURATION_MS 5
 #define ACCENT_DURATION_MS 7
 #define MIN_TRIGGER_INTERVAL_MS 100
-#define MIN_BPM 20
-#define MAX_BPM 500
+#define MIN_GLOBAL_BPM 20
+#define MAX_GLOBAL_BPM 500
 #define DEFAULT_BPM 100
 #define MAX_BEATS 16
 #define MIN_SUBDIVISION 2
@@ -164,7 +164,7 @@ void setupCommands(MainCommand *cmd)
         std::vector<String> cmd = *(std::vector<String>*)arg;
         if (cmd.size() < 2) return;
         uint32_t newBpm = cmd[1].toInt();
-        if (newBpm >= MIN_BPM && newBpm <= MAX_BPM) {
+        if (newBpm >= MIN_GLOBAL_BPM && newBpm <= MAX_GLOBAL_BPM) {
             timing.bpm = newBpm;
             Serial.printf("BPM: %d (effective: %d)\n", 
                 newBpm, 
@@ -237,7 +237,7 @@ void sendCC(uint8_t channel, uint8_t controller, uint8_t value)
 void sendCurrentStatus()
 { 
   //send current BPM as ch16 cc2
-  sendCC(16, 2, map(timing.bpm, MIN_BPM, MAX_BPM, 0, 127));
+  sendCC(16, 2, map(timing.bpm, MIN_GLOBAL_BPM, MAX_GLOBAL_BPM, 0, 127));
   //send current subdivision as ch16 cc3
   sendCC(16, 3, map(timing.subdivision, MIN_SUBDIVISION, MAX_SUBDIVISION, 0, 127));
   //send current beats per measure as ch16 cc4
@@ -269,7 +269,7 @@ void onControlChange(uint8_t channel, uint8_t controller, uint8_t value, uint16_
   // Control BPM by CH15 CC2
   if (channel_actual == 15 && controller == 2)
   {
-    timing.bpm = map(value, 0, 127, MIN_BPM, MAX_BPM);
+    timing.bpm = map(value, 0, 127, MIN_GLOBAL_BPM, MAX_GLOBAL_BPM);
     Serial.printf("BPM: %d (effective: %d)\n",
                   timing.bpm,
                   getEffectiveBpm(timing.bpm, timing.subdivision));

@@ -34,38 +34,10 @@ public:
     }
   }
 
-  void init()
-  {
-    pinMode(solenoidPin, OUTPUT);
-    pinMode(solenoidPin2, OUTPUT);
-    digitalWrite(solenoidPin, LOW);
-    digitalWrite(solenoidPin2, LOW);
-  }
-
-  void processBeat(uint8_t channel, BeatState beatState)
-  {
-
-    if (beatState == ACCENT || beatState == WEAK)
-    {
-      digitalWrite((channel ? solenoidPin : solenoidPin2), HIGH);
-
-      // Schedule turning off the solenoid after the appropriate duration
-      float pulseDuration = (beatState == ACCENT) ? (accentPulseMs / 1000.0f) : (weakPulseMs / 1000.0f);
-
-      pulseTicker.once(pulseDuration, endPulseCallback);
-    }
-  }
-
-  void setPulseDurations(uint16_t weakMs, uint16_t accentMs)
-  {
-    weakPulseMs = weakMs;
-    accentPulseMs = accentMs;
-  }
-
-  bool isPulseActive() const
-  {
-    return pulseActive;
-  }
+  void init();
+  void processBeat(uint8_t channel, BeatState beatState);
+  void setPulseDurations(uint16_t weakMs, uint16_t accentMs);
+  bool isPulseActive() const;
 };
 
 #endif // SOLENOID_CONTROLLER_H

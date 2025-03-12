@@ -25,21 +25,8 @@ private:
     MetronomeChannel channels[2];
     uint32_t longPressStart = 0;
 
-    uint32_t gcd(uint32_t a, uint32_t b) const
-    {
-        while (b != 0)
-        {
-            uint32_t t = b;
-            b = a % b;
-            a = t;
-        }
-        return a;
-    }
-
-    uint32_t lcm(uint32_t a, uint32_t b) const
-    {
-        return (a * b) / gcd(a, b);
-    }
+    uint32_t gcd(uint32_t a, uint32_t b) const;
+    uint32_t lcm(uint32_t a, uint32_t b) const;
 
 public:
     static const uint8_t CHANNEL_COUNT = 2;
@@ -60,102 +47,24 @@ public:
     bool longPressActive = false;
     uint8_t currentMultiplierIndex = 0;
 
-    // Constructor with initialization
-    MetronomeState() : channels{MetronomeChannel(0), MetronomeChannel(1)} {}
+    MetronomeState();
 
-    const MetronomeChannel &getChannel(uint8_t index) const
-    {
-        return channels[index];
-    }
+    const MetronomeChannel &getChannel(uint8_t index) const;
+    MetronomeChannel &getChannel(uint8_t index);
 
-    MetronomeChannel &getChannel(uint8_t index)
-    {
-        return channels[index];
-    }
+    void update();
 
-    void update()
-    {
-        if (isRunning)
-        {
-            for (auto &channel : channels)
-            {
-                channel.updateProgress(globalTick);
-            }
-        }
-    }
-
-    uint8_t getMenuItemsCount() const
-    {
-        return 6;
-    }
-
-    uint8_t getActiveChannel() const
-    {
-        return (static_cast<uint8_t>(menuPosition) - MENU_CH1_LENGTH) / 2;
-    }
-
-    bool isChannelSelected() const
-    {
-        return static_cast<uint8_t>(menuPosition) > MENU_MULTIPLIER;
-    }
-
-    bool isBpmSelected() const
-    {
-        return navLevel == GLOBAL && menuPosition == MENU_BPM;
-    }
-
-    bool isMultiplierSelected() const
-    {
-        return navLevel == GLOBAL && menuPosition == MENU_MULTIPLIER;
-    }
-
-    bool isLengthSelected(uint8_t channel) const
-    {
-        return navLevel == GLOBAL &&
-               menuPosition == static_cast<MenuPosition>(MENU_CH1_LENGTH + channel * 2);
-    }
-
-    bool isPatternSelected(uint8_t channel) const
-    {
-        return navLevel == GLOBAL &&
-               menuPosition == static_cast<MenuPosition>(MENU_CH1_PATTERN + channel * 2);
-    }
-
-    float getProgress() const
-    {
-        if (!isRunning)
-            return 0.0f;
-
-        return float(globalTick % getTotalBeats()) / getTotalBeats();
-    }
-
-    uint32_t getTotalBeats() const
-    {
-        uint32_t result = channels[0].getBarLength();
-        for (uint8_t i = 1; i < CHANNEL_COUNT; i++)
-        {
-            result = lcm(result, channels[i].getBarLength());
-        }
-        return result;
-    }
-
-    float getEffectiveBpm() const
-    {
-        return bpm * multiplierValues[currentMultiplierIndex];
-    }
-
-    const char *getCurrentMultiplierName() const
-    {
-        return multiplierNames[currentMultiplierIndex];
-    }
-
-    float getCurrentMultiplier() const
-    {
-        return multiplierValues[currentMultiplierIndex];
-    }
-
-    void adjustMultiplier(int8_t delta)
-    {
-        currentMultiplierIndex = (currentMultiplierIndex + MULTIPLIER_COUNT + delta) % MULTIPLIER_COUNT;
-    }
+    uint8_t getMenuItemsCount() const;
+    uint8_t getActiveChannel() const;
+    bool isChannelSelected() const;
+    bool isBpmSelected() const;
+    bool isMultiplierSelected() const;
+    bool isLengthSelected(uint8_t channel) const;
+    bool isPatternSelected(uint8_t channel) const;
+    float getProgress() const;
+    uint32_t getTotalBeats() const;
+    float getEffectiveBpm() const;
+    const char *getCurrentMultiplierName() const;
+    float getCurrentMultiplier() const;
+    void adjustMultiplier(int8_t delta);
 };

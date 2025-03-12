@@ -13,118 +13,42 @@ class MetronomeChannel
 {
 private:
     uint8_t id;
-    uint8_t barLength = 4;
-    uint16_t pattern = 1;
-    float multiplier = 1.0;
-    uint8_t currentBeat = 0;
-    bool enabled = true;
-    uint32_t lastBeatTime = 0;
-    bool editing = false;
-    uint8_t editStep = 0;
-    float beatProgress = 0.0f;
+    uint8_t barLength;
+    uint16_t pattern;
+    float multiplier;
+    uint8_t currentBeat;
+    bool enabled;
+    uint32_t lastBeatTime;
+    bool editing;
+    uint8_t editStep;
+    float beatProgress;
 
 public:
-    MetronomeChannel(uint8_t channelId) : id(channelId) {}
+    MetronomeChannel(uint8_t channelId);
 
-    void update(uint32_t globalBpm, uint32_t globalTick) {
-        if (!enabled)
-            return;
-        currentBeat = globalTick % barLength;
-        lastBeatTime = globalTick;
-    }
-
-    BeatState getBeatState() const {
-        if (!enabled)
-            return SILENT;
-        uint16_t fullPattern = (pattern << 1) | 1; // First beat always on
-        return (fullPattern >> currentBeat) & 1 ? ACCENT : SILENT;
-    }
-
-    void toggleBeat(uint8_t step) {
-        if (step == 0)
-            return; // Can't toggle first beat
-        uint16_t mask = 1 << step;
-        pattern ^= mask;
-    }
-
-    void generateEuclidean(uint8_t activeBeats) {
-        // Ensure first beat is included in count
-        activeBeats = constrain(activeBeats, 1, barLength);
-        pattern = 0;
-
-        // Euclidean algorithm implementation
-        float spacing = float(barLength) / activeBeats;
-        for (uint8_t i = 1; i < barLength; i++) {
-            if (int(i * spacing) != int((i - 1) * spacing)) {
-                pattern |= (1 << i);
-            }
-        }
-    }
-
-    uint8_t getId() const { return id; }
-    uint8_t getBarLength() const { return barLength; }
-    uint16_t getPattern() const { return pattern; }
-    float getMultiplier() const { return multiplier; }
-    uint8_t getCurrentBeat() const { return currentBeat; }
-    bool isEnabled() const { return enabled; }
-    bool isEditing() const { return editing; }
-    uint8_t getEditStep() const { return editStep; }
-
-    void setBarLength(uint8_t length) {
-        barLength = constrain(length, 1, 16);
-        pattern &= ((1 << barLength) - 1);
-    }
-
-    void setPattern(uint16_t pat) { pattern = pat; }
-    void setMultiplier(float mult) { multiplier = mult; }
-    void toggleEnabled() { enabled = !enabled; }
-    void setEditing(bool edit) { editing = edit; }
-    
-    void setEditStep(uint8_t step) {
-        editStep = step % barLength;
-    }
-
-    bool getPatternBit(uint8_t position) const {
-        if (!enabled)
-            return false;
-        uint16_t fullPattern = (pattern << 1) | 1; // First beat always on
-        return (fullPattern >> position) & 1;
-    }
-
-    float getProgress(uint32_t currentTime, uint32_t globalBpm) const {
-        if (!enabled || !lastBeatTime)
-            return 0.0f;
-        uint32_t beatInterval = 60000 / (globalBpm * multiplier);
-        return float(currentTime - lastBeatTime) / beatInterval;
-    }
-
-    uint16_t getMaxPattern() const {
-        if (barLength >= 16)
-            return 32767;                     // Max 15-bit value
-        return ((1 << barLength) - 1) >> 1;   // (2^length - 1) / 2, first bit always 1
-    }
-
-    void updateProgress(uint32_t globalTick) {
-        if (!enabled)
-            return;
-        // Calculate progress based on the global tick
-        // This is simpler and more consistent than using millis()
-        beatProgress = (globalTick % 1) / 1.0f;
-    }
-
-    void updateBeat(uint32_t globalTick) {
-        if (!enabled)
-            return;
-        currentBeat = globalTick % barLength;
-    }
-
-    float getProgress() const {
-        return enabled ? beatProgress : 0.0f;
-    }
-
-    void resetBeat() {
-        currentBeat = 0;
-        lastBeatTime = 0;
-        beatProgress = 0.0f;
-    }
+    void update(uint32_t globalBpm, uint32_t globalTick);
+    BeatState getBeatState() const;
+    void toggleBeat(uint8_t step);
+    void generateEuclidean(uint8_t activeBeats);
+    uint8_t getId() const;
+    uint8_t getBarLength() const;
+    uint16_t getPattern() const;
+    float getMultiplier() const;
+    uint8_t getCurrentBeat() const;
+    bool isEnabled() const;
+    bool isEditing() const;
+    uint8_t getEditStep() const;
+    void setBarLength(uint8_t length);
+    void setPattern(uint16_t pat);
+    void setMultiplier(float mult);
+    void toggleEnabled();
+    void setEditing(bool edit);
+    void setEditStep(uint8_t step);
+    bool getPatternBit(uint8_t position) const;
+    float getProgress(uint32_t currentTime, uint32_t globalBpm) const;
+    uint16_t getMaxPattern() const;
+    void updateProgress(uint32_t globalTick);
+    void updateBeat(uint32_t globalTick);
+    float getProgress() const;
+    void resetBeat();
 };

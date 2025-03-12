@@ -58,7 +58,7 @@ public:
     bool isEditing = false;
     uint32_t currentBeat = 0;
     bool longPressActive = false;
-    uint8_t currentMultiplierIndex = 3;
+    uint8_t currentMultiplierIndex = 0;
 
     // Constructor with initialization
     MetronomeState() : channels{MetronomeChannel(0), MetronomeChannel(1)} {}

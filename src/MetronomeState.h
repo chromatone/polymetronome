@@ -149,6 +149,11 @@ public:
         return multiplierNames[currentMultiplierIndex];
     }
 
+    float getCurrentMultiplier() const
+    {
+        return multiplierValues[currentMultiplierIndex];
+    }
+
     void adjustMultiplier(int8_t delta)
     {
         currentMultiplierIndex = (currentMultiplierIndex + MULTIPLIER_COUNT + delta) % MULTIPLIER_COUNT;

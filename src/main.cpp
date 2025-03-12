@@ -28,11 +28,14 @@ void onBeatEvent(uint8_t channel, BeatState beatState)
 
 void onClockPulse(uint32_t tick)
 {
+    // Calculate effective tick based on multiplier
+    uint32_t effectiveTick = tick * state.getCurrentMultiplier();
+
     // Convert PPQN ticks to quarter note beats
-    uint32_t quarterNoteTick = tick / 96;
+    uint32_t quarterNoteTick = effectiveTick / 96;
 
     // Only process on quarter note boundaries
-    if (tick % 96 == 0)
+    if (effectiveTick % 96 == 0)
     {
         state.globalTick = quarterNoteTick;
         state.lastBeatTime = quarterNoteTick;

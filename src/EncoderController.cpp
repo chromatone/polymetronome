@@ -118,17 +118,14 @@ void EncoderController::handleRotaryEncoder()
 
   if (state.isEditing)
   {
-    bool needTimerUpdate = false;
-
     if (state.isBpmSelected())
     {
       state.bpm = constrain(state.bpm + diff, MIN_GLOBAL_BPM, MAX_GLOBAL_BPM);
-      needTimerUpdate = true;
+      uClock.setTempo(state.bpm);
     }
     else if (state.isMultiplierSelected())
     {
       state.adjustMultiplier(diff);
-      needTimerUpdate = true;
     }
     else
     {
@@ -144,11 +141,6 @@ void EncoderController::handleRotaryEncoder()
         int newPattern = (static_cast<int>(channel.getPattern()) + channel.getMaxPattern() + 1 + diff) % (channel.getMaxPattern() + 1);
         channel.setPattern(static_cast<uint16_t>(newPattern));
       }
-    }
-
-    if (needTimerUpdate && state.isRunning)
-    {
-      uClock.setTempo(state.getEffectiveBpm());
     }
   }
   else

@@ -29,15 +29,76 @@ void MetronomeChannel::toggleBeat(uint8_t step) {
 }
 
 void MetronomeChannel::generateEuclidean(uint8_t activeBeats) {
+    // Constrain active beats to be at least 1 and at most barLength
     activeBeats = constrain(activeBeats, 1, barLength);
+    
+    // Reset pattern
     pattern = 0;
-
-    float spacing = float(barLength) / activeBeats;
-    for (uint8_t i = 1; i < barLength; i++) {
-        if (int(i * spacing) != int((i - 1) * spacing)) {
-            pattern |= (1 << i);
-        }
+    
+    // Debug output
+    Serial.print("Generating Euclidean rhythm: ");
+    Serial.print(activeBeats);
+    Serial.print(" beats in ");
+    Serial.print(barLength);
+    Serial.println(" positions");
+    
+    // If we only have one active beat, it should be the first beat
+    if (activeBeats <= 1) {
+        // First beat is always active and not stored in pattern
+        return; // pattern remains 0
     }
+    
+    // Proper Bjorklund's algorithm implementation
+    // Calculate the number of beats per group and remainder
+    uint8_t beatsPerGroup = barLength / activeBeats;
+    uint8_t remainder = barLength % activeBeats;
+    
+    // Create a temporary pattern that includes all positions
+    uint16_t fullPattern = 0;
+    uint8_t position = 0;
+    
+    // Place beats with spacing
+    for (uint8_t i = 0; i < activeBeats; i++) {
+        // Set the bit at the current position
+        fullPattern |= (1 << position);
+        
+        // Move position by beats per group plus 1 if we're in the remainder
+        position += beatsPerGroup + (i < remainder ? 1 : 0);
+    }
+    
+    // Debug output
+    Serial.print("Full pattern: 0b");
+    for (int8_t i = barLength - 1; i >= 0; i--) {
+        Serial.print((fullPattern >> i) & 1);
+    }
+    Serial.println();
+    
+    // Now extract the pattern excluding the first beat
+    // First, ensure the first beat is active in our pattern
+    if (!(fullPattern & 1)) {
+        // If the first beat isn't active in the Euclidean pattern,
+        // we need to rotate the pattern to make it active
+        uint8_t firstActivePos = 0;
+        for (uint8_t i = 0; i < barLength; i++) {
+            if (fullPattern & (1 << i)) {
+                firstActivePos = i;
+                break;
+            }
+        }
+        
+        // Rotate the pattern to make the first active beat be at position 0
+        fullPattern = ((fullPattern >> firstActivePos) | (fullPattern << (barLength - firstActivePos))) & ((1 << barLength) - 1);
+    }
+    
+    // Now extract the pattern excluding the first beat
+    pattern = (fullPattern >> 1);
+    
+    // Debug output
+    Serial.print("Final pattern: 0b");
+    for (int8_t i = barLength - 2; i >= 0; i--) {
+        Serial.print((pattern >> i) & 1);
+    }
+    Serial.println();
 }
 
 uint8_t MetronomeChannel::getId() const { return id; }

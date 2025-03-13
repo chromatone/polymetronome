@@ -22,6 +22,7 @@
 #define SOLENOID_PULSE_MS 5
 #define ACCENT_PULSE_MS 7
 #define SOUND_DURATION_MS 25 // Duration of sound on each beat (in ms)
+#define LONG_PRESS_DURATION_MS 2000 // Duration for long press in milliseconds
 
 // Audio settings
 #define AUDIO_FREQ_CH1 220        // Frequency for channel 1 in Hz

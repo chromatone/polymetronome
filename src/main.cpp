@@ -88,6 +88,9 @@ void loop()
     }
 
     encoderController.handleControls();
+    
+    // Update state
+    state.update();
 
     display.update(state);
     // Prevent watchdog timeouts

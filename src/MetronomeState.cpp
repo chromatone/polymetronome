@@ -29,14 +29,21 @@ void MetronomeState::update() {
             channel.updateProgress(globalTick);
         }
     }
+    
+    // Check if Euclidean feedback should be cleared
+    if (euclideanApplied && (millis() - euclideanAppliedTime > LONG_PRESS_DURATION_MS)) {
+        euclideanApplied = false;
+    }
 }
 
 uint8_t MetronomeState::getMenuItemsCount() const {
-    return 6;
+    return 8;
 }
 
 uint8_t MetronomeState::getActiveChannel() const {
-    return (static_cast<uint8_t>(menuPosition) - MENU_CH1_LENGTH) / 2;
+    uint8_t pos = static_cast<uint8_t>(menuPosition);
+    return (pos >= MENU_CH1_TOGGLE && pos <= MENU_CH1_PATTERN) ? 0 : 
+           (pos >= MENU_CH2_TOGGLE && pos <= MENU_CH2_PATTERN) ? 1 : 0;
 }
 
 bool MetronomeState::isChannelSelected() const {
@@ -51,14 +58,19 @@ bool MetronomeState::isMultiplierSelected() const {
     return navLevel == GLOBAL && menuPosition == MENU_MULTIPLIER;
 }
 
+bool MetronomeState::isToggleSelected(uint8_t channel) const {
+    return navLevel == GLOBAL &&
+           menuPosition == static_cast<MenuPosition>(MENU_CH1_TOGGLE + channel * 3);
+}
+
 bool MetronomeState::isLengthSelected(uint8_t channel) const {
     return navLevel == GLOBAL &&
-           menuPosition == static_cast<MenuPosition>(MENU_CH1_LENGTH + channel * 2);
+           menuPosition == static_cast<MenuPosition>(MENU_CH1_LENGTH + channel * 3);
 }
 
 bool MetronomeState::isPatternSelected(uint8_t channel) const {
     return navLevel == GLOBAL &&
-           menuPosition == static_cast<MenuPosition>(MENU_CH1_PATTERN + channel * 2);
+           menuPosition == static_cast<MenuPosition>(MENU_CH1_PATTERN + channel * 3);
 }
 
 float MetronomeState::getProgress() const {

@@ -16,6 +16,10 @@ private:
   bool lastEncBtn = HIGH;
   bool lastStartBtn = HIGH;
   bool lastStopBtn = HIGH;
+  
+  // Long press tracking
+  uint32_t buttonPressStartTime = 0;
+  bool buttonLongPressActive = false;
 
 public:
   EncoderController(MetronomeState &state);

@@ -106,10 +106,10 @@ void Display::drawGlobalRow(const MetronomeState &state)
     sprintf(buffer, "x%s", state.getCurrentMultiplierName());
     if (state.isMultiplierSelected())
     {
-        display->drawFrame(55, 1, 30, 12);
+        display->drawFrame(55, 1, 16, 12);
         if (state.isEditing)
         {
-            display->drawBox(55, 1, 30, 12);
+            display->drawBox(55, 1, 16, 12);
             display->setDrawColor(0);
         }
     }
@@ -157,23 +157,43 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
         }
     }
 
+    // Draw channel toggle (on/off)
+    bool isToggleSelected = state.isToggleSelected(channelIndex);
+    if (isToggleSelected)
+    {
+        display->drawFrame(7, y - 1, 16, 12);
+        if (state.isEditing)
+        {
+            display->drawBox(7, y - 1, 16, 12);
+            display->setDrawColor(0);
+        }
+    }
+    
+    // Draw toggle circle
+    if (channel.isEnabled()) {
+        display->drawDisc(14, y + 5, 3); // Filled circle when enabled
+    } else {
+        display->drawCircle(14, y + 5, 3); // Empty circle when disabled
+    }
+    display->setDrawColor(1);
+
     // Length row
     sprintf(buffer, "%02d", channel.getBarLength());
     bool isLengthSelected = state.isLengthSelected(channelIndex);
 
-    // Box for length (shifted right by 4px)
+    // Box for length (shifted right to make room for toggle)
     if (isLengthSelected)
     {
-        display->drawFrame(7, y - 1, 120, 12);
+        display->drawFrame(25, y - 1, 16, 12);
         if (state.isEditing)
         {
-            display->drawBox(7, y - 1, 120, 12);
+            display->drawBox(25, y - 1, 16, 12);
             display->setDrawColor(0);
         }
     }
 
     // Draw length text
-    display->drawStr(9, y + 8, buffer);
+    display->drawStr(27, y + 8, buffer);
     display->setDrawColor(1);
 
     // Add pattern counter (current/total)
@@ -196,6 +216,25 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
         }
     }
     display->drawHLine(1, patternY, 126);
+    
+    // Show Euclidean rhythm applied message
+    if (state.euclideanApplied && state.isPatternSelected(channelIndex)) {
+        // Show message for 2 seconds
+        if (millis() - state.euclideanAppliedTime < LONG_PRESS_DURATION_MS) {
+            display->setDrawColor(0);
+            display->drawBox(30, patternY + 1, 70, 8);
+            display->setDrawColor(1);
+            display->drawStr(32, patternY + 8, "EUCLIDEAN");
+            
+            // Skip drawing the beat grid
+            display->setDrawColor(1);
+            return;
+        } else {
+            // Clear the flag after 2 seconds
+            MetronomeState &mutableState = const_cast<MetronomeState&>(state);
+            mutableState.euclideanApplied = false;
+        }
+    }
     
     // Get max length between both channels for polymeter visualization
     uint8_t maxLength = max(state.getChannel(0).getBarLength(), state.getChannel(1).getBarLength());

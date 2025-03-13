@@ -53,11 +53,82 @@ void EncoderController::encoderISRHandler()
 void EncoderController::handleEncoderButton()
 {
   bool encBtn = digitalRead(ENCODER_BTN);
+  uint32_t currentTime = millis();
 
-  if (encBtn != lastEncBtn && encBtn == LOW)
-  {
-    state.isEditing = !state.isEditing;
+  // Button pressed
+  if (encBtn == LOW && lastEncBtn == HIGH) {
+    // Start timing for long press
+    buttonPressStartTime = currentTime;
+    buttonLongPressActive = false;
   }
+  // Button released
+  else if (encBtn == HIGH && lastEncBtn == LOW) {
+    // If it wasn't a long press, handle as a normal click
+    if (!buttonLongPressActive) {
+      // Check if a channel toggle is selected
+      for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
+        if (state.isToggleSelected(i)) {
+          // Toggle the channel on/off
+          state.getChannel(i).toggleEnabled();
+          lastEncBtn = encBtn;
+          return;
+        }
+      }
+      
+      // Otherwise toggle editing mode as before
+      state.isEditing = !state.isEditing;
+    }
+    // Reset long press state on button release
+    buttonLongPressActive = false;
+  }
+  // Button still pressed, check for long press
+  else if (encBtn == LOW && !buttonLongPressActive) {
+    // Check if we've held the button long enough for a long press
+    if (currentTime - buttonPressStartTime > LONG_PRESS_DURATION_MS) {
+      buttonLongPressActive = true;
+      
+      // Handle long press for Euclidean rhythm reset
+      uint8_t channelIndex = state.getActiveChannel();
+      
+      // Only apply Euclidean rhythm if we're on a pattern
+      if (state.isPatternSelected(channelIndex)) {
+        auto &channel = state.getChannel(channelIndex);
+        
+        // Count active beats in current pattern
+        uint16_t pattern = channel.getPattern();
+        uint8_t barLength = channel.getBarLength();
+        uint8_t activeBeats = 0;
+        
+        // Count active beats in the pattern
+        // First beat is always active
+        activeBeats = 1;
+        
+        // Count active beats in the rest of the pattern
+        for (uint8_t i = 0; i < barLength - 1; i++) {
+          if ((pattern >> i) & 1) {
+            activeBeats++;
+          }
+        }
+        
+        // Debug output
+        Serial.print("Active beats: ");
+        Serial.print(activeBeats);
+        Serial.print(" / Bar length: ");
+        Serial.println(barLength);
+        
+        // Generate Euclidean rhythm with the same number of active beats
+        channel.generateEuclidean(activeBeats);
+        
+        // Set a flag to show feedback
+        state.euclideanApplied = true;
+        state.euclideanAppliedTime = currentTime;
+        
+        // Exit editing mode
+        state.isEditing = false;
+      }
+    }
+  }
+  
   lastEncBtn = encBtn;
 }
 

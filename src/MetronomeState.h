@@ -13,10 +13,12 @@ enum MenuPosition
 {
     MENU_BPM = 0,
     MENU_MULTIPLIER = 1,
-    MENU_CH1_LENGTH = 2,
-    MENU_CH1_PATTERN = 3,
-    MENU_CH2_LENGTH = 4,
-    MENU_CH2_PATTERN = 5
+    MENU_CH1_TOGGLE = 2,
+    MENU_CH1_LENGTH = 3,
+    MENU_CH1_PATTERN = 4,
+    MENU_CH2_TOGGLE = 5,
+    MENU_CH2_LENGTH = 6,
+    MENU_CH2_PATTERN = 7
 };
 
 class MetronomeState
@@ -46,6 +48,10 @@ public:
     uint32_t currentBeat = 0;
     bool longPressActive = false;
     uint8_t currentMultiplierIndex = 0;
+    
+    // Euclidean rhythm feedback
+    bool euclideanApplied = false;
+    uint32_t euclideanAppliedTime = 0;
 
     MetronomeState();
 
@@ -59,6 +65,7 @@ public:
     bool isChannelSelected() const;
     bool isBpmSelected() const;
     bool isMultiplierSelected() const;
+    bool isToggleSelected(uint8_t channel) const;
     bool isLengthSelected(uint8_t channel) const;
     bool isPatternSelected(uint8_t channel) const;
     float getProgress() const;

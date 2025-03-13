@@ -28,6 +28,10 @@ void onBeatEvent(uint8_t channel, BeatState beatState)
 
 void onClockPulse(uint32_t tick)
 {
+    // If paused, don't process clock pulses
+    if (state.isPaused)
+        return;
+        
     // Calculate effective tick based on multiplier
     uint32_t effectiveTick = tick * state.getCurrentMultiplier();
 

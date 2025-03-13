@@ -138,16 +138,23 @@ void EncoderController::handleStartButton()
 
   if (startBtn != lastStartBtn && startBtn == LOW)
   {
-    state.isRunning = !state.isRunning;
-    state.isPaused = !state.isRunning;
-
-    if (state.isRunning)
-    {
+    // If stopped, start playback
+    if (!state.isRunning && !state.isPaused) {
+      state.isRunning = true;
+      state.isPaused = false;
       uClock.start();
+    } 
+    // If running, pause playback
+    else if (state.isRunning && !state.isPaused) {
+      state.isRunning = false;
+      state.isPaused = true;
+      uClock.pause();
     }
-    else
-    {
-      uClock.stop();
+    // If paused, resume playback
+    else if (!state.isRunning && state.isPaused) {
+      state.isRunning = true;
+      state.isPaused = false;
+      uClock.pause(); // uClock.pause() toggles between pause and resume
     }
   }
   lastStartBtn = startBtn;
@@ -159,18 +166,24 @@ void EncoderController::handleStopButton()
 
   if (stopBtn != lastStopBtn && stopBtn == LOW)
   {
+    // Reset all state variables
     state.isRunning = false;
     state.isPaused = false;
     state.currentBeat = 0;
     state.globalTick = 0;
     state.lastBeatTime = 0;
 
+    // Stop the clock
     uClock.stop();
 
+    // Reset all channels
     for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++)
     {
       state.getChannel(i).resetBeat();
     }
+    
+    // Debug output
+    Serial.println("Metronome stopped and reset");
   }
   lastStopBtn = stopBtn;
 }

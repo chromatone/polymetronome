@@ -87,6 +87,12 @@ void Display::drawGlobalRow(const MetronomeState &state)
             display->drawBox(1, 1, 4, 12);
         }
     }
+    else if (state.isPaused)
+    {
+        // Show pause indicator (two vertical bars)
+        display->drawBox(3, 3, 1, 8);
+        display->drawBox(6, 3, 1, 8);
+    }
 
     // BPM display with selection frame
     sprintf(buffer, "%d BPM", state.bpm);
@@ -131,7 +137,18 @@ void Display::drawGlobalProgress(const MetronomeState &state)
     float progress = float(state.globalTick % state.getTotalBeats() + 1) / (state.getTotalBeats());
 
     uint8_t width = uint8_t(progress * (SCREEN_WIDTH - 2));
-    display->drawBox(1, 14, width, 2);
+    
+    // Draw a solid progress bar when running, dashed when paused
+    if (state.isPaused) {
+        // Draw dashed progress bar when paused
+        for (uint8_t x = 1; x < width; x += 4) {
+            uint8_t dashWidth = min(2, width - x);
+            display->drawBox(x, 14, dashWidth, 2);
+        }
+    } else {
+        // Draw solid progress bar when running
+        display->drawBox(1, 14, width, 2);
+    }
 }
 
 void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex, uint8_t y)

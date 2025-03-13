@@ -12,6 +12,7 @@ private:
     // Animation timing variables
     uint32_t animationTick = 0;
     Ticker animationTicker;
+    bool animationRunning = false;
 
     static Display *_instance;
     static void animationTickerCallback();
@@ -30,5 +31,6 @@ public:
     // Animation control
     void startAnimation();
     void stopAnimation();
+    bool isAnimationRunning() const { return animationRunning; }
     uint32_t getAnimationTick() const { return animationTick; }
 };

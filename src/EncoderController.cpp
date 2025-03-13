@@ -172,6 +172,8 @@ void EncoderController::handleStopButton()
     state.currentBeat = 0;
     state.globalTick = 0;
     state.lastBeatTime = 0;
+    state.tickFraction = 0.0f;
+    state.lastPpqnTick = 0;
 
     // Stop the clock
     uClock.stop();

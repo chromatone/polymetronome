@@ -8,6 +8,7 @@ Display::Display()
 {
     display = new U8G2_SH1106_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
     _instance = this;
+    animationRunning = false;
 }
 
 Display::~Display()
@@ -43,11 +44,13 @@ void Display::startAnimation()
     animationTick = 0;
     // Update animation at 20ms intervals (50Hz)
     animationTicker.attach(0.02, animationTickerCallback);
+    animationRunning = true;
 }
 
 void Display::stopAnimation()
 {
     animationTicker.detach();
+    animationRunning = false;
 }
 
 void Display::update(const MetronomeState &state)
@@ -124,7 +127,8 @@ void Display::drawGlobalRow(const MetronomeState &state)
 
     // Beat counter on the right
     uint32_t totalBeats = state.getTotalBeats();
-    uint32_t currentBeat = (state.globalTick % totalBeats) + 1;
+    float currentPosition = float(state.globalTick % totalBeats) + state.tickFraction;
+    uint32_t currentBeat = uint32_t(currentPosition) + 1; // Add 1 for 1-based counting
     sprintf(buffer, "%lu/%lu", currentBeat, totalBeats);
     display->drawStr(92, 11, buffer);
 }
@@ -134,8 +138,10 @@ void Display::drawGlobalProgress(const MetronomeState &state)
     if (!state.isRunning && !state.isPaused)
         return;
 
-    float progress = float(state.globalTick % state.getTotalBeats() + 1) / (state.getTotalBeats());
+    // Get the smooth progress value (includes fractional part)
+    float progress = state.getProgress();
 
+    // Calculate the width of the progress bar
     uint8_t width = uint8_t(progress * (SCREEN_WIDTH - 2));
     
     // Draw a solid progress bar when running, dashed when paused
@@ -272,7 +278,12 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, uin
     for (uint8_t i = 0; i < barLength; i++)
     {
         uint8_t cellX = x + (i * cellWidth);
-        bool isCurrentBeat = (i == ch.getCurrentBeat());
+        
+        // Check if this is the current beat or the next beat for smooth transition
+        uint8_t currentBeat = ch.getCurrentBeat();
+        bool isCurrentBeat = (i == currentBeat);
+        bool isNextBeat = (i == ((currentBeat + 1) % barLength));
+        
         bool isBeatActive = ch.getPatternBit(i);
 
         if (isEditing && i == ch.getEditStep())

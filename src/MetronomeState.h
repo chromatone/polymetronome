@@ -39,8 +39,10 @@ public:
     uint16_t bpm = 120;
     bool isRunning = false;
     bool isPaused = false;
-    volatile uint32_t globalTick = 0; // Made volatile for ISR access
-    uint32_t lastBeatTime = 0;        // Kept public as used by other modules
+    volatile uint32_t globalTick = 0;    // Made volatile for ISR access
+    volatile float tickFraction = 0.0f;  // Fractional part of the current tick (0.0 to 1.0)
+    uint32_t lastBeatTime = 0;           // Kept public as used by other modules
+    uint32_t lastPpqnTick = 0;           // Last PPQN tick from uClock
 
     NavLevel navLevel = GLOBAL;
     MenuPosition menuPosition = MENU_BPM;
@@ -59,6 +61,7 @@ public:
     MetronomeChannel &getChannel(uint8_t index);
 
     void update();
+    void updateTickFraction(uint32_t ppqnTick);
 
     uint8_t getMenuItemsCount() const;
     uint8_t getActiveChannel() const;

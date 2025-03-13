@@ -36,6 +36,35 @@ void MetronomeState::update() {
     }
 }
 
+void MetronomeState::updateTickFraction(uint32_t ppqnTick) {
+    // If paused, don't update the fraction
+    if (isPaused) {
+        return;
+    }
+    
+    // Calculate effective tick based on multiplier
+    float multiplier = getCurrentMultiplier();
+    uint32_t effectiveTick = uint32_t(ppqnTick * multiplier);
+    
+    // Store the last PPQN tick
+    lastPpqnTick = ppqnTick;
+    
+    // Calculate the fractional part of the current beat
+    // PPQN_96 means 96 ticks per quarter note
+    uint32_t tickInBeat = effectiveTick % 96;
+    tickFraction = float(tickInBeat) / 96.0f;
+}
+
+float MetronomeState::getProgress() const {
+    if (!isRunning && !isPaused)
+        return 0.0f;
+
+    uint32_t totalBeats = getTotalBeats();
+    float currentPosition = float(globalTick % totalBeats) + tickFraction;
+    
+    return currentPosition / totalBeats;
+}
+
 uint8_t MetronomeState::getMenuItemsCount() const {
     return 8;
 }
@@ -71,13 +100,6 @@ bool MetronomeState::isLengthSelected(uint8_t channel) const {
 bool MetronomeState::isPatternSelected(uint8_t channel) const {
     return navLevel == GLOBAL &&
            menuPosition == static_cast<MenuPosition>(MENU_CH1_PATTERN + channel * 3);
-}
-
-float MetronomeState::getProgress() const {
-    if (!isRunning)
-        return 0.0f;
-
-    return float(globalTick % getTotalBeats()) / getTotalBeats();
 }
 
 uint32_t MetronomeState::getTotalBeats() const {

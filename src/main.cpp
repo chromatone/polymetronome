@@ -28,7 +28,10 @@ void onBeatEvent(uint8_t channel, BeatState beatState)
 
 void onClockPulse(uint32_t tick)
 {
-    // If paused, don't process clock pulses
+    // Update the fractional tick position on every pulse
+    state.updateTickFraction(tick);
+    
+    // If paused, don't process clock pulses further
     if (state.isPaused)
         return;
         
@@ -74,21 +77,29 @@ void setup()
     uClock.setOnPPQN(onClockPulse);
     uClock.setPPQN(uClock.PPQN_96);
     uClock.setTempo(state.bpm);
+    
+    // Start animation immediately (even before playback starts)
     display.startAnimation();
 }
 
 void loop()
 {
     // Check if running state has changed
-    if (state.isRunning != previousRunningState)
+    if ((state.isRunning != previousRunningState) && !state.isPaused)
     {
         previousRunningState = state.isRunning;
 
-        // Reset animation ticker when state changes
+        // Reset animation ticker when state changes (but not when pausing)
         if (state.isRunning)
         {
             display.startAnimation();
         }
+    }
+    
+    // Make sure animation is always running
+    if (!display.isAnimationRunning())
+    {
+        display.startAnimation();
     }
 
     encoderController.handleControls();

@@ -2,6 +2,11 @@
 #include <Arduino.h>
 #include "config.h"
 
+// Forward declaration of WirelessSync class
+class WirelessSync;
+// External declaration of the global instance
+extern WirelessSync* globalWirelessSync;
+
 enum BeatState
 {
     SILENT = 0,

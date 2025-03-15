@@ -56,6 +56,23 @@ void WirelessSync::onDataReceived(const uint8_t *mac, const uint8_t *data, int l
       }
       break;
       
+    case MSG_PATTERN:
+      // Process pattern message (for followers)
+      if (wirelessSyncInstance && !wirelessSyncInstance->_isLeader) {
+        // Get channel ID and validate
+        uint8_t channelId = msg->data.pattern.channelId;
+        if (channelId < MetronomeState::CHANNEL_COUNT) {
+          // Update pattern in state
+          MetronomeChannel &channel = wirelessSyncInstance->_state->getChannel(channelId);
+          channel.setPattern(msg->data.pattern.pattern);
+          channel.setBarLength(msg->data.pattern.barLength);
+          if (channel.isEnabled() != msg->data.pattern.enabled) {
+            channel.toggleEnabled();
+          }
+        }
+      }
+      break;
+      
     case MSG_CONTROL:
       // Process control messages
       if (msg->data.control.command == CMD_RESET && msg->data.control.param1 == 1) {
@@ -184,7 +201,10 @@ void WirelessSync::sendBeat(uint32_t beat, MetronomeState &state) {
   SyncMessage msg;
   msg.type = MSG_BEAT;
   msg.data.beat.bpm = uClock.getTempo();
-  msg.data.beat.beatPosition = beat % 4; // Assuming 4/4 time for now
+  
+  // Calculate beat position based on total pattern length
+  uint32_t totalBeats = state.getTotalBeats();
+  msg.data.beat.beatPosition = beat % totalBeats;
   msg.data.beat.multiplierIdx = state.currentMultiplierIndex;
   memset(msg.data.beat.reserved, 0, sizeof(msg.data.beat.reserved));
   
@@ -197,32 +217,40 @@ void WirelessSync::sendBar(uint32_t bar, MetronomeState &state) {
   msg.data.bar.globalBar = bar;
   msg.data.bar.channelCount = MetronomeState::CHANNEL_COUNT;
   
-  // Get pattern length from first enabled channel or use default
-  uint16_t patternLength = 4; // Default pattern length
-  uint8_t activePattern = 0;  // Default pattern ID
-  
-  // Create channel mask with enabled channels
+  // Calculate total pattern length (LCM of all enabled channel lengths)
+  uint16_t patternLength = 1;
   uint32_t channelMask = 0;
   
-  // Populate channel mask and get pattern info from state
   for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
     const MetronomeChannel &channel = state.getChannel(i);
     if (channel.isEnabled()) {
-      // Set bit for enabled channel
       channelMask |= (1 << i);
-      
-      // Use first enabled channel's pattern length
-      if (patternLength == 4) { // If still default
-        patternLength = channel.getBarLength();
-      }
+      uint16_t channelLength = channel.getBarLength();
+      // Calculate LCM for total pattern length
+      patternLength = lcm(patternLength, channelLength);
     }
   }
   
   msg.data.bar.patternLength = patternLength;
-  msg.data.bar.activePattern = activePattern; // TODO: Get active pattern from state if needed
+  msg.data.bar.activePattern = 0; // Not used currently
   msg.data.bar.channelMask = channelMask;
   
   sendMessage(msg);
+}
+
+// Helper function to calculate LCM
+uint16_t WirelessSync::lcm(uint16_t a, uint16_t b) {
+  return (a * b) / gcd(a, b);
+}
+
+// Helper function to calculate GCD
+uint16_t WirelessSync::gcd(uint16_t a, uint16_t b) {
+  while (b != 0) {
+    uint16_t t = b;
+    b = a % b;
+    a = t;
+  }
+  return a;
 }
 
 void WirelessSync::sendPattern(MetronomeState &state, uint8_t channelId) {
@@ -239,6 +267,7 @@ void WirelessSync::sendPattern(MetronomeState &state, uint8_t channelId) {
   msg.data.pattern.enabled = channel.isEnabled() ? 1 : 0;
   memset(msg.data.pattern.reserved, 0, sizeof(msg.data.pattern.reserved));
   
+  // Send pattern immediately for instant sync
   sendMessage(msg);
 }
 
@@ -259,13 +288,22 @@ void WirelessSync::notifyPatternChanged(uint8_t channelId) {
 }
 
 void WirelessSync::update(MetronomeState &state) {
-  // Only used for detecting pattern changes and sending them immediately
-  // Most messages are sent from uClock callbacks now
+  _state = &state; // Store state reference for pattern updates
   
+  // Check for pattern changes
   if (_patternChanged) {
     _patternChanged = false;
     
     // Send updated pattern info for all channels
+    for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
+      sendPattern(state, i);
+    }
+  }
+  
+  // If we're the leader and just started, send initial patterns
+  static bool initialPatternsSent = false;
+  if (_isLeader && !initialPatternsSent) {
+    initialPatternsSent = true;
     for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
       sendPattern(state, i);
     }

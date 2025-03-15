@@ -19,6 +19,9 @@ AudioController audioController(DAC_PIN);
 EncoderController encoderController(state);
 WirelessSync wirelessSync;
 
+// Global pointer to WirelessSync instance for pattern change notifications
+WirelessSync* globalWirelessSync = &wirelessSync;
+
 // Track previous running state to detect changes
 bool previousRunningState = false;
 
@@ -109,14 +112,15 @@ void setup()
         uClock.setMode(uClock.EXTERNAL_CLOCK);
     }
     
-    // Register callbacks
+    // Register callbacks - only register each callback once
     uClock.setOnSync24(onSync24Wrapper);
-    uClock.setOnPPQN(onClockPulse); // Main metronome logic
+    uClock.setOnPPQN([](uint32_t tick) {
+        // Process main metronome logic first
+        onClockPulse(tick);
+        // Then handle wireless sync
+        wirelessSync.onPPQN(tick, state);
+    });
     uClock.setOnStep(onStepWrapper);
-    
-    // Register wireless sync callbacks
-    uClock.setOnSync24(onSync24Wrapper);
-    uClock.setOnPPQN(onPPQNWrapper);
     
     uClock.setPPQN(uClock.PPQN_96);
     uClock.setTempo(state.bpm);
@@ -128,19 +132,29 @@ void setup()
 void loop()
 {
     // Check if running state has changed
-    if ((state.isRunning != previousRunningState) && !state.isPaused)
+    if (state.isRunning != previousRunningState)
     {
         previousRunningState = state.isRunning;
 
         // Reset animation ticker when state changes (but not when pausing)
-        if (state.isRunning)
+        if (state.isRunning && !state.isPaused)
         {
             display.startAnimation();
-            wirelessSync.sendControl(CMD_START);
+            if (wirelessSync.isLeader()) {
+                wirelessSync.sendControl(CMD_START);
+            }
+            uClock.start();
         }
-        else
+        else if (!state.isRunning)
         {
-            wirelessSync.sendControl(CMD_STOP);
+            if (wirelessSync.isLeader()) {
+                wirelessSync.sendControl(state.isPaused ? CMD_PAUSE : CMD_STOP);
+            }
+            if (!state.isPaused) {
+                uClock.stop();
+            } else {
+                uClock.pause();
+            }
         }
     }
     

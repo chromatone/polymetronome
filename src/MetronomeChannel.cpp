@@ -1,4 +1,5 @@
 #include "MetronomeChannel.h"
+#include "WirelessSync.h"
 
 MetronomeChannel::MetronomeChannel(uint8_t channelId)
     : id(channelId), barLength(4), pattern(0), multiplier(1.0), currentBeat(0),
@@ -26,6 +27,10 @@ void MetronomeChannel::toggleBeat(uint8_t step) {
         return; // Can't toggle first beat
     uint16_t mask = 1 << step;
     pattern ^= mask;
+    // Notify pattern change
+    if (globalWirelessSync) {
+        globalWirelessSync->notifyPatternChanged(id);
+    }
 }
 
 void MetronomeChannel::generateEuclidean(uint8_t activeBeats) {
@@ -111,13 +116,31 @@ bool MetronomeChannel::isEditing() const { return editing; }
 uint8_t MetronomeChannel::getEditStep() const { return editStep; }
 
 void MetronomeChannel::setBarLength(uint8_t length) {
-    barLength = constrain(length, 1, 16);
-    pattern &= ((1 << barLength) - 1);
+    if (length > 0 && length <= MAX_BEATS) {
+        barLength = length;
+        // Notify pattern change since this affects pattern playback
+        if (globalWirelessSync) {
+            globalWirelessSync->notifyPatternChanged(id);
+        }
+    }
 }
 
-void MetronomeChannel::setPattern(uint16_t pat) { pattern = pat; }
+void MetronomeChannel::setPattern(uint16_t pat) {
+    pattern = pat;
+    // Notify pattern change
+    if (globalWirelessSync) {
+        globalWirelessSync->notifyPatternChanged(id);
+    }
+}
+
 void MetronomeChannel::setMultiplier(float mult) { multiplier = mult; }
-void MetronomeChannel::toggleEnabled() { enabled = !enabled; }
+void MetronomeChannel::toggleEnabled() {
+    enabled = !enabled;
+    // Notify pattern change since this affects pattern playback
+    if (globalWirelessSync) {
+        globalWirelessSync->notifyPatternChanged(id);
+    }
+}
 void MetronomeChannel::setEditing(bool edit) { editing = edit; }
 
 void MetronomeChannel::setEditStep(uint8_t step) {

@@ -111,6 +111,13 @@ private:
   uint32_t _predictedNextTick;
   float _driftCorrection;
   
+  // State reference for pattern updates
+  MetronomeState* _state;
+  
+  // Helper functions for pattern length calculations
+  uint16_t lcm(uint16_t a, uint16_t b);
+  uint16_t gcd(uint16_t a, uint16_t b);
+  
   // Callback functions
   static void onDataReceived(const uint8_t *mac, const uint8_t *data, int len);
   
@@ -146,7 +153,8 @@ public:
       _lastSendTime(0),
       _lastReceivedTick(0),
       _predictedNextTick(0),
-      _driftCorrection(1.0f)
+      _driftCorrection(1.0f),
+      _state(nullptr)
   {
       memset(_currentLeaderID, 0, sizeof(_currentLeaderID));
       memset(_highestPriorityDevice, 0, sizeof(_highestPriorityDevice));

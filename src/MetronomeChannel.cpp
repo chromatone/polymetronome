@@ -207,6 +207,11 @@ void MetronomeChannel::updatePolyrhythmBeat(uint32_t masterTick, uint8_t ch1Leng
         float ratio = float(ch2Length) / float(ch1Length);
         float exactPosition = (masterTick % ch1Length) * ratio;
         
+        // For cases where ch2Length > ch1Length, ensure we don't exceed the bar length
+        if (exactPosition >= ch2Length) {
+            exactPosition = fmod(exactPosition, ch2Length);
+        }
+        
         // Round to nearest beat position
         currentBeat = uint8_t(exactPosition) % barLength;
         
@@ -251,20 +256,23 @@ BeatState MetronomeChannel::getPolyrhythmBeatState(uint32_t ppqnTick, const Metr
     
     // Calculate how many ticks per beat for channel 2
     // We need to distribute ch2Length beats evenly across totalTicksInBar ticks
-    uint32_t ticksPerBeat = totalTicksInBar / ch2Length;
-    
-    // Add a small tolerance to account for floating point imprecision
-    uint32_t tolerance = 1;
+    float ticksPerBeatFloat = float(totalTicksInBar) / float(ch2Length);
     
     // Check if this tick represents a beat boundary for channel 2
     uint32_t tickInBar = effectiveTick % totalTicksInBar;
     
-    // If we're exactly on a beat boundary (or within tolerance)
-    if (tickInBar % ticksPerBeat <= tolerance || 
-        (tickInBar % ticksPerBeat >= ticksPerBeat - tolerance && tickInBar % ticksPerBeat < ticksPerBeat)) {
-        
+    // Calculate the exact beat position using floating point
+    float exactBeatPosition = float(tickInBar) / ticksPerBeatFloat;
+    uint32_t beatPosition = uint32_t(exactBeatPosition);
+    float fractionalPart = exactBeatPosition - beatPosition;
+    
+    // Tolerance for beat detection (0.05 = 5% of a beat)
+    float tolerance = 0.05f;
+    
+    // If we're close to a beat boundary (within tolerance)
+    if (fractionalPart < tolerance || fractionalPart > (1.0f - tolerance)) {
         // Calculate which beat in the pattern this is
-        uint8_t beatPosition = (tickInBar / ticksPerBeat) % ch2Length;
+        beatPosition = beatPosition % ch2Length;
         
         // Return appropriate beat state based on pattern
         if (beatPosition == 0) {

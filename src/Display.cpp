@@ -142,12 +142,12 @@ void Display::drawGlobalRow(const MetronomeState &state)
         // Horizontal line
         display->drawHLine(76, 6, 8);
         // Top dot
-        display->drawCircle(79, 3, 1);
+        display->drawCircle(78, 3, 1);
         // Bottom dot
-        display->drawCircle(79, 9, 1);
+        display->drawCircle(78, 9, 1);
     } else {
         // Draw plus symbol (+)
-        display->drawStr(76, 11, "+");
+        display->drawStr(77, 11, "+");
     }
     display->setDrawColor(1);
 
@@ -174,7 +174,7 @@ void Display::drawGlobalProgress(const MetronomeState &state)
     if (state.isPaused) {
         // Draw dashed progress bar when paused
         for (uint8_t x = 1; x < width; x += 4) {
-            uint8_t dashWidth = min(2, width - x);
+            uint8_t dashWidth = (2 < (width - x)) ? 2 : (width - x);
             display->drawBox(x, 14, dashWidth, 2);
         }
     } else {
@@ -191,36 +191,50 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
     // Channel beat indicator (4px wide block on the left)
     if (channel.isEnabled() && state.isRunning)
     {
-        BeatState beatState;
+        // For polyrhythm mode, we need to check if we're on a beat for channel 2
+        bool shouldBlink = false;
+        float beatDuration = 60000.0f / state.getEffectiveBpm(); // Default beat duration
         
-        // In polyrhythm mode, use the appropriate beat state calculation
         if (state.isPolyrhythm() && channelIndex == 1) {
-            // For channel 2 in polyrhythm mode, check if we're on a beat boundary
-            beatState = channel.getPolyrhythmBeatState(state.lastPpqnTick, state);
+            // For channel 2 in polyrhythm mode, calculate the beat duration based on the ratio
+            uint8_t ch1Length = state.getChannel(0).getBarLength();
+            uint8_t ch2Length = channel.getBarLength();
+            
+            if (ch1Length > 0 && ch2Length > 0) {
+                // Calculate the ratio between the two channels
+                float ratio = float(ch2Length) / float(ch1Length);
+                
+                // Calculate the beat duration for channel 2
+                beatDuration = 60000.0f / (state.getEffectiveBpm() * ratio);
+                
+                // Get the current beat position directly from the channel
+                uint8_t beatPosition = channel.getCurrentBeat();
+                
+                // Check if this beat is active in the pattern
+                if (beatPosition == 0 || ((channel.getPattern() >> (beatPosition - 1)) & 1)) {
+                    shouldBlink = true;
+                }
+                
+                // Debug output
+                Serial.print("CH2 Blink check: beat=");
+                Serial.print(beatPosition);
+                Serial.print(", active=");
+                Serial.println(shouldBlink ? "YES" : "NO");
+            }
         } else {
-            // Normal beat state calculation
-            beatState = channel.getBeatState();
+            // For channel 1 or polymeter mode, use the normal beat state
+            BeatState beatState = channel.getBeatState();
+            shouldBlink = (beatState != SILENT);
         }
         
-        if (beatState != SILENT)
+        if (shouldBlink)
         {
-            // Calculate flash duration - shorter than half the beat length
-            float beatDuration;
+            // Calculate flash duration - longer for better visibility
+            float flashDuration = beatDuration * 0.4f; // 40% of beat duration
             
-            if (state.isPolyrhythm() && channelIndex == 1) {
-                // For channel 2 in polyrhythm mode, calculate the beat duration based on the ratio
-                uint8_t ch1Length = state.getChannel(0).getBarLength();
-                uint8_t ch2Length = channel.getBarLength();
-                float ratio = float(ch1Length) / float(ch2Length);
-                beatDuration = 60000.0f / (state.getEffectiveBpm() * ratio);
-            } else {
-                // Normal beat duration calculation
-                beatDuration = 60000.0f / state.getEffectiveBpm();
-            }
+            // Calculate animation time based on the appropriate beat duration
+            uint32_t animTime = (animationTick * 20) % uint32_t(beatDuration);
             
-            float flashDuration = beatDuration * 0.5f;                         // 50% of beat duration
-            uint32_t animTime = (animationTick * 20) % uint32_t(beatDuration); // 20ms per animation tick
-
             if (animTime < flashDuration)
             {
                 display->drawBox(1, y - 1, 4, 12); // Only the height of the upper row
@@ -315,7 +329,9 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
         maxLength = channel.getBarLength();
     } else {
         // In polymeter mode, use max length between channels for consistent visualization
-        maxLength = max(state.getChannel(0).getBarLength(), state.getChannel(1).getBarLength());
+        uint8_t ch1Length = state.getChannel(0).getBarLength();
+        uint8_t ch2Length = state.getChannel(1).getBarLength();
+        maxLength = (ch1Length > ch2Length) ? ch1Length : ch2Length;
     }
     
     drawBeatGrid(2, patternY + 1, channel, maxLength, state.isPolyrhythm(), state);
@@ -327,9 +343,11 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, uin
     uint8_t barLength = ch.getBarLength();
     uint8_t cellWidth;
     
+    if (barLength == 0) return; // Safety check
+    
     if (isPolyrhythm) {
         // For polyrhythm, each channel's grid should take the full width
-        cellWidth = (126 / barLength); 
+        cellWidth = 126 / barLength; 
     } else {
         // For polymeter, maintain consistent cell width based on max length
         cellWidth = (maxLength > 0) ? (126 / maxLength) : 0;
@@ -339,46 +357,46 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, uin
         return; // Safety check
 
     // Calculate how far to draw (either this channel's bar length or the max length, depending on mode)
-    uint8_t drawLength = isPolyrhythm ? barLength : min(barLength, maxLength);
+    uint8_t drawLength = isPolyrhythm ? barLength : ((barLength < maxLength) ? barLength : maxLength);
 
+    // Get current beat position
+    uint8_t currentBeat = ch.getCurrentBeat();
+    
     // Draw only up to this channel's bar length
     for (uint8_t i = 0; i < drawLength; i++)
     {
         uint8_t cellX = x + (i * cellWidth);
         
-        // Get beat position, which could be different in polyrhythm mode
-        uint8_t beatPosition = i;
-        
-        // Check if this is the current beat or the next beat for smooth transition
-        uint8_t currentBeat = ch.getCurrentBeat();
+        // Check if this is the current beat
         bool isCurrentBeat = (i == currentBeat);
         
-        // In polyrhythm mode, we need to highlight the current beat position correctly
-        if (isPolyrhythm && ch.getId() == 1) {
-            isCurrentBeat = (i == currentBeat);
-        }
-        
+        // Get pattern bit for this position
         bool isBeatActive = ch.getPatternBit(i);
 
+        // Draw edit frame if needed
         if (ch.isEditing() && i == ch.getEditStep())
         {
             display->drawFrame(cellX, y, cellWidth - 1, 8);
         }
 
+        // Draw vertical grid lines
         display->drawVLine(cellX - 1, y, 10);
 
         if (i == drawLength - 1) {
             display->drawVLine(cellX + cellWidth - 1, y, 10); // Closing vertical line for the last beat
         }
 
+        // Draw beat indicators
         if (isBeatActive)
         {
             if (isCurrentBeat && ch.isEnabled())
             {
+                // Filled box for active current beat
                 display->drawBox(cellX + 1, y + 1, cellWidth - 3, 7);
             }
             else
             {
+                // Circle for active non-current beat
                 display->drawDisc(cellX + cellWidth / 2 - 1, y + 4, 2);
             }
         }
@@ -391,6 +409,7 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, uin
         }
         else
         {
+            // Simple pixel for inactive beat
             display->drawPixel(cellX + cellWidth / 2 - 1, y + 4);
         }
     }

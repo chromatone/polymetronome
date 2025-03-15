@@ -36,6 +36,9 @@ void onClockPulse(uint32_t tick)
     // Update the fractional tick position on every pulse
     state.updateTickFraction(tick);
     
+    // Always store the last PPQN tick for polyrhythm calculations
+    state.lastPpqnTick = tick;
+    
     // If paused, don't process clock pulses further
     if (state.isPaused)
         return;
@@ -103,6 +106,14 @@ void onClockPulse(uint32_t tick)
                 // Only update if both lengths are valid
                 if (ch1Length > 0 && ch2Length > 0) {
                     state.getChannel(1).updatePolyrhythmBeat(quarterNoteTick, ch1Length, ch2Length);
+                    
+                    // Debug output
+                    Serial.print("Polyrhythm update: CH1=");
+                    Serial.print(ch1Length);
+                    Serial.print(", CH2=");
+                    Serial.print(ch2Length);
+                    Serial.print(", Beat=");
+                    Serial.println(state.getChannel(1).getCurrentBeat());
                 }
             }
         }

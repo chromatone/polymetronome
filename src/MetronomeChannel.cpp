@@ -193,43 +193,37 @@ void MetronomeChannel::resetBeat() {
 // New methods for polyrhythm mode
 
 void MetronomeChannel::updatePolyrhythmBeat(uint32_t masterTick, uint8_t ch1Length, uint8_t ch2Length) {
-    if (!enabled)
+    if (!enabled || ch1Length == 0 || ch2Length == 0)
         return;
     
     // Handle channel 1 normally (uses the global masterTick)
     if (id == 0) {
         currentBeat = masterTick % barLength;
+        lastBeatTime = masterTick;
+        return;
     } 
-    // For channel 2, we need to calculate based on the ratio to channel 1
-    else if (id == 1) {
-        // We want ch2Length beats to occur evenly across ch1Length beats
-        // Calculate the beat position using floating point for precision
-        float ratio = float(ch2Length) / float(ch1Length);
-        float exactPosition = (masterTick % ch1Length) * ratio;
-        
-        // For cases where ch2Length > ch1Length, ensure we don't exceed the bar length
-        if (exactPosition >= ch2Length) {
-            exactPosition = fmod(exactPosition, ch2Length);
-        }
-        
-        // Round to nearest beat position
-        currentBeat = uint8_t(exactPosition) % barLength;
-        
-        // Debug output
-        Serial.print("CH2 Position: ");
-        Serial.print(currentBeat);
-        Serial.print(" (exact: ");
-        Serial.print(exactPosition);
-        Serial.print(") - Ratio: ");
-        Serial.print(ratio);
-        Serial.print(" - Master tick: ");
-        Serial.println(masterTick);
-    }
     
+    // For channel 2, calculate based on the ratio of the two channels
+    // The goal is to distribute ch2Length beats evenly throughout the ch1Length cycle
+    
+    // Get position in the current cycle (0 to ch1Length-1)
+    uint32_t cyclePosition = masterTick % ch1Length;
+    
+    // Calculate the ratio of beats between the two channels
+    float ratio = float(ch2Length) / float(ch1Length);
+    
+    // Calculate the exact fractional position in channel 2's pattern
+    float exactPosition = cyclePosition * ratio;
+    
+    // Convert to an integer beat position, ensuring we don't exceed the bar length
+    currentBeat = uint8_t(exactPosition) % barLength;
+    
+    // Store the last beat time
     lastBeatTime = masterTick;
 }
 
 BeatState MetronomeChannel::getPolyrhythmBeatState(uint32_t ppqnTick, const MetronomeState& state) const {
+    // Basic checks
     if (!enabled)
         return SILENT;
     
@@ -238,7 +232,7 @@ BeatState MetronomeChannel::getPolyrhythmBeatState(uint32_t ppqnTick, const Metr
         return getBeatState();
     }
     
-    // For channel 2, need to determine if a beat should trigger at this PPQN tick
+    // For channel 2, determine if this PPQN tick should trigger a beat
     uint8_t ch1Length = state.getChannel(0).getBarLength();
     uint8_t ch2Length = barLength;
     
@@ -250,28 +244,30 @@ BeatState MetronomeChannel::getPolyrhythmBeatState(uint32_t ppqnTick, const Metr
     float multiplier = state.getCurrentMultiplier();
     uint32_t effectiveTick = uint32_t(ppqnTick * multiplier);
     
+    // Calculate the total ticks in one bar of channel 1
     // PPQN_96 means 96 ticks per quarter note
-    // Each quarter note is represented by 96 ticks
     uint32_t totalTicksInBar = ch1Length * 96;
     
     // Calculate how many ticks per beat for channel 2
     // We need to distribute ch2Length beats evenly across totalTicksInBar ticks
-    float ticksPerBeatFloat = float(totalTicksInBar) / float(ch2Length);
+    float ticksPerBeat = float(totalTicksInBar) / float(ch2Length);
     
-    // Check if this tick represents a beat boundary for channel 2
+    // Get the position within the current bar
     uint32_t tickInBar = effectiveTick % totalTicksInBar;
     
     // Calculate the exact beat position using floating point
-    float exactBeatPosition = float(tickInBar) / ticksPerBeatFloat;
+    float exactBeatPosition = float(tickInBar) / ticksPerBeat;
+    
+    // Get the integer beat position and fractional part
     uint32_t beatPosition = uint32_t(exactBeatPosition);
     float fractionalPart = exactBeatPosition - beatPosition;
     
-    // Tolerance for beat detection (0.05 = 5% of a beat)
+    // Define tolerance for beat detection (0.05 = 5% of a beat)
     float tolerance = 0.05f;
     
     // If we're close to a beat boundary (within tolerance)
     if (fractionalPart < tolerance || fractionalPart > (1.0f - tolerance)) {
-        // Calculate which beat in the pattern this is
+        // Ensure we don't exceed the bar length
         beatPosition = beatPosition % ch2Length;
         
         // Return appropriate beat state based on pattern

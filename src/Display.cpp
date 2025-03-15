@@ -128,10 +128,10 @@ void Display::drawGlobalRow(const MetronomeState &state)
     // Rhythm mode toggle (+ for polymeter, ÷ for polyrhythm)
     if (state.isRhythmModeSelected())
     {
-        display->drawFrame(74, 1, 12, 12);
+        display->drawFrame(74, 1, 14, 12);
         if (state.isEditing)
         {
-            display->drawBox(74, 1, 12, 12);
+            display->drawBox(74, 1, 14, 12);
             display->setDrawColor(0);
         }
     }
@@ -140,11 +140,11 @@ void Display::drawGlobalRow(const MetronomeState &state)
     if (state.isPolyrhythm()) {
         // Draw division symbol (÷) with primitives
         // Horizontal line
-        display->drawHLine(76, 6, 8);
+        display->drawHLine(76, 6, 10);
         // Top dot
-        display->drawCircle(78, 3, 1);
+        display->drawDisc(80, 3, 1);
         // Bottom dot
-        display->drawCircle(78, 9, 1);
+        display->drawDisc(80, 9, 1);
     } else {
         // Draw plus symbol (+)
         display->drawStr(77, 11, "+");
@@ -214,12 +214,6 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
                 if (beatPosition == 0 || ((channel.getPattern() >> (beatPosition - 1)) & 1)) {
                     shouldBlink = true;
                 }
-                
-                // Debug output
-                Serial.print("CH2 Blink check: beat=");
-                Serial.print(beatPosition);
-                Serial.print(", active=");
-                Serial.println(shouldBlink ? "YES" : "NO");
             }
         } else {
             // For channel 1 or polymeter mode, use the normal beat state
@@ -362,13 +356,44 @@ void Display::drawBeatGrid(uint8_t x, uint8_t y, const MetronomeChannel &ch, uin
     // Get current beat position
     uint8_t currentBeat = ch.getCurrentBeat();
     
+    // For polyrhythm mode on channel 2, we need to calculate the progress differently
+    float progress = 0.0f;
+    
+    if (isPolyrhythm && ch.getId() == 1) {
+        // For channel 2 in polyrhythm mode, we need to calculate the progress
+        // based on the first channel's cycle
+        uint8_t ch1Length = state.getChannel(0).getBarLength();
+        
+        if (ch1Length > 0) {
+            // Calculate the progress within the first channel's cycle (0.0 to 1.0)
+            uint32_t currentTick = state.globalTick;
+            progress = float(currentTick % ch1Length) / float(ch1Length);
+            
+            // Add fractional part for smoother animation
+            progress += state.tickFraction / float(ch1Length);
+        }
+    }
+    
     // Draw only up to this channel's bar length
     for (uint8_t i = 0; i < drawLength; i++)
     {
         uint8_t cellX = x + (i * cellWidth);
         
-        // Check if this is the current beat
-        bool isCurrentBeat = (i == currentBeat);
+        // Determine if this is the current beat
+        bool isCurrentBeat = false;
+        
+        if (isPolyrhythm && ch.getId() == 1) {
+            // For polyrhythm on channel 2, we need to map the progress to the beat position
+            // Calculate the position of this beat in the cycle (0.0 to 1.0)
+            float beatPosition = float(i) / float(barLength);
+            float nextBeatPosition = float(i + 1) / float(barLength);
+            
+            // A beat is "current" if the progress is within its range
+            isCurrentBeat = (progress >= beatPosition && progress < nextBeatPosition);
+        } else {
+            // Standard current beat check for channel 1 or polymeter mode
+            isCurrentBeat = (i == currentBeat);
+        }
         
         // Get pattern bit for this position
         bool isBeatActive = ch.getPatternBit(i);

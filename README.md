@@ -18,6 +18,7 @@ A modular multi-track hardware metronome system capable of running multiple inde
 - Global tempo synchronization
 - Real-time visual feedback
 - Solenoid actuation with accent support
+- Wireless sync via ESP-NOW for multiple devices
 
 ## Implementation Status
 
@@ -35,32 +36,51 @@ A modular multi-track hardware metronome system capable of running multiple inde
 - [ ] Tap tempo input
 - [ ] Pattern templates
 - [ ] MIDI Clock sync
-- [ ] Settings storage
-- [ ] Wireless control
+- [x] Settings storage
+- [x] Wireless control
 
 3. Hardware Improvements
 
 - [ ] PCB design
 - [ ] Case design
 - [ ] Power supply optimization
-- [ ] Multiple solenoid support
-- [ ] LED indicators
+- [x] Multiple solenoid support
+- [x] LED indicators
 
 4. Modular system:
 
 - [ ] Connectors
-- [ ] Solenoids
+- [x] Solenoids
 - [ ] Piezo buzzers
 - [ ] Speakers/amplifiers
-- [ ] LED arrays/strips
-- [ ] LCD displays
+- [x] LED arrays/strips
+- [x] LCD displays
 - [ ] MIDI interface modules
-- [ ] Rotary encoders
-- [ ] Buttons/switches
+- [x] Rotary encoders
+- [x] Buttons/switches
 - [ ] Potentiometers
 - [ ] Accelerometers
-- [ ] Wireless modules (WiFi/BLE)
+- [x] Wireless modules (WiFi/BLE)
 - [ ] SD card readers
 - [ ] External DACs
 - [ ] CV/Gate outputs
 - [ ] USB interfaces
+
+## Wireless Sync System
+
+The metronome now includes a wireless synchronization system using ESP-NOW, allowing multiple devices to stay in perfect sync:
+
+- **Leader-Follower Architecture**: One metronome acts as the leader, broadcasting timing and pattern information
+- **Low Latency**: ESP-NOW provides sub-5ms latency for tight synchronization
+- **Robust Protocol**: Custom protocol with heartbeats, tempo, pattern, and control messages
+- **Auto-Recovery**: Followers automatically reconnect if connection is lost
+- **Expandable**: Support for LED strips, additional solenoids, and other output devices
+
+### LED Receiver
+
+A companion project is included for an ESP32-controlled LED strip that syncs with the metronome:
+
+- Receives wireless sync data from the metronome
+- Visualizes beats with configurable colors for each channel
+- Automatically follows pattern changes
+- See the [LED Receiver README](led_receiver/README.md) for details

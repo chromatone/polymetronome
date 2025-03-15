@@ -10,12 +10,14 @@
 #include "SolenoidController.h"
 #include "AudioController.h"
 #include "EncoderController.h"
+#include "WirelessSync.h"
 
 MetronomeState state;
 Display display;
 SolenoidController solenoidController(SOLENOID_PIN, SOLENOID_PIN2);
 AudioController audioController(DAC_PIN);
 EncoderController encoderController(state);
+WirelessSync wirelessSync;
 
 // Track previous running state to detect changes
 bool previousRunningState = false;
@@ -64,6 +66,19 @@ void onClockPulse(uint32_t tick)
     }
 }
 
+// Wrapper functions for uClock callbacks
+void onSync24Wrapper(uint32_t tick) {
+    wirelessSync.onSync24(tick);
+}
+
+void onPPQNWrapper(uint32_t tick) {
+    wirelessSync.onPPQN(tick, state);
+}
+
+void onStepWrapper(uint32_t step) {
+    wirelessSync.onStep(step, state);
+}
+
 void setup()
 {
     Serial.begin(115200);
@@ -72,9 +87,37 @@ void setup()
     display.begin();
     encoderController.begin();
 
+    // Initialize wireless sync
+    if (wirelessSync.init()) {
+        // Set a random priority based on device ID
+        uint8_t devicePriority = random(1, 100);
+        wirelessSync.setPriority(devicePriority);
+        
+        // Start leader negotiation
+        wirelessSync.negotiateLeadership();
+    }
+
     // Initialize uClock
     uClock.init();
-    uClock.setOnPPQN(onClockPulse);
+    
+    // Set uClock mode based on leader status
+    if (wirelessSync.isLeader()) {
+        // Leader mode - internal clock
+        uClock.setMode(uClock.INTERNAL_CLOCK);
+    } else {
+        // Follower mode - external clock
+        uClock.setMode(uClock.EXTERNAL_CLOCK);
+    }
+    
+    // Register callbacks
+    uClock.setOnSync24(onSync24Wrapper);
+    uClock.setOnPPQN(onClockPulse); // Main metronome logic
+    uClock.setOnStep(onStepWrapper);
+    
+    // Register wireless sync callbacks
+    uClock.setOnSync24(onSync24Wrapper);
+    uClock.setOnPPQN(onPPQNWrapper);
+    
     uClock.setPPQN(uClock.PPQN_96);
     uClock.setTempo(state.bpm);
     
@@ -93,6 +136,11 @@ void loop()
         if (state.isRunning)
         {
             display.startAnimation();
+            wirelessSync.sendControl(CMD_START);
+        }
+        else
+        {
+            wirelessSync.sendControl(CMD_STOP);
         }
     }
     
@@ -106,6 +154,12 @@ void loop()
     
     // Update state
     state.update();
+
+    // Update wireless sync
+    wirelessSync.update(state);
+    
+    // Check leader status periodically
+    wirelessSync.checkLeaderStatus();
 
     display.update(state);
     // Prevent watchdog timeouts

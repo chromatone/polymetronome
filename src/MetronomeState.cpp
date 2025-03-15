@@ -66,7 +66,7 @@ float MetronomeState::getProgress() const {
 }
 
 uint8_t MetronomeState::getMenuItemsCount() const {
-    return 8;
+    return 9;
 }
 
 uint8_t MetronomeState::getActiveChannel() const {
@@ -76,7 +76,7 @@ uint8_t MetronomeState::getActiveChannel() const {
 }
 
 bool MetronomeState::isChannelSelected() const {
-    return static_cast<uint8_t>(menuPosition) > MENU_MULTIPLIER;
+    return static_cast<uint8_t>(menuPosition) > MENU_RHYTHM_MODE;
 }
 
 bool MetronomeState::isBpmSelected() const {
@@ -85,6 +85,10 @@ bool MetronomeState::isBpmSelected() const {
 
 bool MetronomeState::isMultiplierSelected() const {
     return navLevel == GLOBAL && menuPosition == MENU_MULTIPLIER;
+}
+
+bool MetronomeState::isRhythmModeSelected() const {
+    return navLevel == GLOBAL && menuPosition == MENU_RHYTHM_MODE;
 }
 
 bool MetronomeState::isToggleSelected(uint8_t channel) const {
@@ -103,11 +107,17 @@ bool MetronomeState::isPatternSelected(uint8_t channel) const {
 }
 
 uint32_t MetronomeState::getTotalBeats() const {
-    uint32_t result = channels[0].getBarLength();
-    for (uint8_t i = 1; i < CHANNEL_COUNT; i++) {
-        result = lcm(result, channels[i].getBarLength());
+    if (rhythmMode == POLYMETER) {
+        // In polymeter mode, use LCM of all channel bar lengths
+        uint32_t result = channels[0].getBarLength();
+        for (uint8_t i = 1; i < CHANNEL_COUNT; i++) {
+            result = lcm(result, channels[i].getBarLength());
+        }
+        return result;
+    } else {
+        // In polyrhythm mode, first channel determines total bar length
+        return channels[0].getBarLength();
     }
-    return result;
 }
 
 float MetronomeState::getEffectiveBpm() const {
@@ -124,4 +134,8 @@ float MetronomeState::getCurrentMultiplier() const {
 
 void MetronomeState::adjustMultiplier(int8_t delta) {
     currentMultiplierIndex = (currentMultiplierIndex + MULTIPLIER_COUNT + delta) % MULTIPLIER_COUNT;
+}
+
+void MetronomeState::toggleRhythmMode() {
+    rhythmMode = (rhythmMode == POLYMETER) ? POLYRHYTHM : POLYMETER;
 } 

@@ -46,23 +46,63 @@ void onClockPulse(uint32_t tick)
     // Convert PPQN ticks to quarter note beats
     uint32_t quarterNoteTick = effectiveTick / 96;
 
-    // Only process on quarter note boundaries
+    // In polyrhythm mode, we need more frequent checks to catch all subdivisions
+    bool isPolyrhythm = state.isPolyrhythm();
+    
+    // For polyrhythm, use the precise timing method for channel 2
+    if (isPolyrhythm && state.getChannel(1).isEnabled()) {
+        // Check if this tick should trigger a beat for channel 2 based on its polyrhythm subdivision
+        BeatState ch2State = state.getChannel(1).getPolyrhythmBeatState(tick, state);
+        if (ch2State != SILENT) {
+            // Trigger the beat event for channel 2
+            onBeatEvent(1, ch2State);
+        }
+    }
+
+    // Only process quarter note boundaries for channel 1 and for polymeter mode
     if (effectiveTick % 96 == 0)
     {
         state.globalTick = quarterNoteTick;
         state.lastBeatTime = quarterNoteTick;
 
-        for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++)
-        {
-            MetronomeChannel &channel = state.getChannel(i);
-            if (channel.isEnabled())
+        // In polymeter mode, handle both channels
+        if (!isPolyrhythm) {
+            for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++)
             {
-                channel.updateBeat(quarterNoteTick);
+                MetronomeChannel &channel = state.getChannel(i);
+                if (channel.isEnabled())
+                {
+                    channel.updateBeat(quarterNoteTick);
 
-                BeatState currentState = channel.getBeatState();
+                    BeatState currentState = channel.getBeatState();
+                    if (currentState != SILENT)
+                    {
+                        onBeatEvent(i, currentState);
+                    }
+                }
+            }
+        } else {
+            // In polyrhythm mode, only handle channel 1 on quarter note boundaries
+            MetronomeChannel &channel1 = state.getChannel(0);
+            if (channel1.isEnabled())
+            {
+                channel1.updateBeat(quarterNoteTick);
+
+                BeatState currentState = channel1.getBeatState();
                 if (currentState != SILENT)
                 {
-                    onBeatEvent(i, currentState);
+                    onBeatEvent(0, currentState);
+                }
+            }
+            
+            // Update polyrhythm beat position for channel 2
+            if (state.getChannel(1).isEnabled()) {
+                uint8_t ch1Length = state.getChannel(0).getBarLength();
+                uint8_t ch2Length = state.getChannel(1).getBarLength();
+                
+                // Only update if both lengths are valid
+                if (ch1Length > 0 && ch2Length > 0) {
+                    state.getChannel(1).updatePolyrhythmBeat(quarterNoteTick, ch1Length, ch2Length);
                 }
             }
         }

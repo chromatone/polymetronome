@@ -65,6 +65,14 @@ void EncoderController::handleEncoderButton()
   else if (encBtn == HIGH && lastEncBtn == LOW) {
     // If it wasn't a long press, handle as a normal click
     if (!buttonLongPressActive) {
+      // Check if rhythm mode is selected
+      if (state.isRhythmModeSelected()) {
+        // Toggle between polymeter and polyrhythm modes
+        state.toggleRhythmMode();
+        lastEncBtn = encBtn;
+        return;
+      }
+      
       // Check if a channel toggle is selected
       for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
         if (state.isToggleSelected(i)) {

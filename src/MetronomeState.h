@@ -13,12 +13,19 @@ enum MenuPosition
 {
     MENU_BPM = 0,
     MENU_MULTIPLIER = 1,
-    MENU_CH1_TOGGLE = 2,
-    MENU_CH1_LENGTH = 3,
-    MENU_CH1_PATTERN = 4,
-    MENU_CH2_TOGGLE = 5,
-    MENU_CH2_LENGTH = 6,
-    MENU_CH2_PATTERN = 7
+    MENU_RHYTHM_MODE = 2,  // New menu option for rhythm mode toggle
+    MENU_CH1_TOGGLE = 3,
+    MENU_CH1_LENGTH = 4,
+    MENU_CH1_PATTERN = 5,
+    MENU_CH2_TOGGLE = 6,
+    MENU_CH2_LENGTH = 7,
+    MENU_CH2_PATTERN = 8
+};
+
+enum MetronomeMode
+{
+    POLYMETER, // Traditional polymeter mode (additive, +)
+    POLYRHYTHM  // New polyrhythm mode (divisive, ÷)
 };
 
 class MetronomeState
@@ -43,6 +50,9 @@ public:
     volatile float tickFraction = 0.0f;  // Fractional part of the current tick (0.0 to 1.0)
     uint32_t lastBeatTime = 0;           // Kept public as used by other modules
     uint32_t lastPpqnTick = 0;           // Last PPQN tick from uClock
+    
+    // Rhythm mode (polymeter or polyrhythm)
+    MetronomeMode rhythmMode = POLYMETER;
 
     NavLevel navLevel = GLOBAL;
     MenuPosition menuPosition = MENU_BPM;
@@ -68,6 +78,7 @@ public:
     bool isChannelSelected() const;
     bool isBpmSelected() const;
     bool isMultiplierSelected() const;
+    bool isRhythmModeSelected() const;
     bool isToggleSelected(uint8_t channel) const;
     bool isLengthSelected(uint8_t channel) const;
     bool isPatternSelected(uint8_t channel) const;
@@ -77,4 +88,6 @@ public:
     const char *getCurrentMultiplierName() const;
     float getCurrentMultiplier() const;
     void adjustMultiplier(int8_t delta);
+    void toggleRhythmMode();
+    bool isPolyrhythm() const { return rhythmMode == POLYRHYTHM; }
 };

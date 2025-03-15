@@ -7,6 +7,9 @@ class WirelessSync;
 // External declaration of the global instance
 extern WirelessSync* globalWirelessSync;
 
+// Forward declaration for MetronomeState to avoid circular includes
+class MetronomeState;
+
 enum BeatState
 {
     SILENT = 0,
@@ -56,4 +59,8 @@ public:
     void updateBeat(uint32_t globalTick);
     float getProgress() const;
     void resetBeat();
+    
+    // New methods for polyrhythm mode
+    void updatePolyrhythmBeat(uint32_t masterTick, uint8_t ch1Length, uint8_t ch2Length);
+    BeatState getPolyrhythmBeatState(uint32_t ppqnTick, const MetronomeState& state) const;
 };

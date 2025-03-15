@@ -1,5 +1,6 @@
 #include "MetronomeChannel.h"
 #include "WirelessSync.h"
+#include "MetronomeState.h"
 
 MetronomeChannel::MetronomeChannel(uint8_t channelId)
     : id(channelId), barLength(4), pattern(0), multiplier(1.0), currentBeat(0),
@@ -187,4 +188,91 @@ void MetronomeChannel::resetBeat() {
     currentBeat = 0;
     lastBeatTime = 0;
     beatProgress = 0.0f;
+}
+
+// New methods for polyrhythm mode
+
+void MetronomeChannel::updatePolyrhythmBeat(uint32_t masterTick, uint8_t ch1Length, uint8_t ch2Length) {
+    if (!enabled)
+        return;
+    
+    // Handle channel 1 normally (uses the global masterTick)
+    if (id == 0) {
+        currentBeat = masterTick % barLength;
+    } 
+    // For channel 2, we need to calculate based on the ratio to channel 1
+    else if (id == 1) {
+        // We want ch2Length beats to occur evenly across ch1Length beats
+        // Calculate the beat position using floating point for precision
+        float ratio = float(ch2Length) / float(ch1Length);
+        float exactPosition = (masterTick % ch1Length) * ratio;
+        
+        // Round to nearest beat position
+        currentBeat = uint8_t(exactPosition) % barLength;
+        
+        // Debug output
+        Serial.print("CH2 Position: ");
+        Serial.print(currentBeat);
+        Serial.print(" (exact: ");
+        Serial.print(exactPosition);
+        Serial.print(") - Ratio: ");
+        Serial.print(ratio);
+        Serial.print(" - Master tick: ");
+        Serial.println(masterTick);
+    }
+    
+    lastBeatTime = masterTick;
+}
+
+BeatState MetronomeChannel::getPolyrhythmBeatState(uint32_t ppqnTick, const MetronomeState& state) const {
+    if (!enabled)
+        return SILENT;
+    
+    // Channel 1 is processed normally
+    if (id == 0) {
+        return getBeatState();
+    }
+    
+    // For channel 2, need to determine if a beat should trigger at this PPQN tick
+    uint8_t ch1Length = state.getChannel(0).getBarLength();
+    uint8_t ch2Length = barLength;
+    
+    // Skip calculation if either channel length is 0
+    if (ch1Length == 0 || ch2Length == 0)
+        return SILENT;
+    
+    // Calculate effective tick based on multiplier
+    float multiplier = state.getCurrentMultiplier();
+    uint32_t effectiveTick = uint32_t(ppqnTick * multiplier);
+    
+    // PPQN_96 means 96 ticks per quarter note
+    // Each quarter note is represented by 96 ticks
+    uint32_t totalTicksInBar = ch1Length * 96;
+    
+    // Calculate how many ticks per beat for channel 2
+    // We need to distribute ch2Length beats evenly across totalTicksInBar ticks
+    uint32_t ticksPerBeat = totalTicksInBar / ch2Length;
+    
+    // Add a small tolerance to account for floating point imprecision
+    uint32_t tolerance = 1;
+    
+    // Check if this tick represents a beat boundary for channel 2
+    uint32_t tickInBar = effectiveTick % totalTicksInBar;
+    
+    // If we're exactly on a beat boundary (or within tolerance)
+    if (tickInBar % ticksPerBeat <= tolerance || 
+        (tickInBar % ticksPerBeat >= ticksPerBeat - tolerance && tickInBar % ticksPerBeat < ticksPerBeat)) {
+        
+        // Calculate which beat in the pattern this is
+        uint8_t beatPosition = (tickInBar / ticksPerBeat) % ch2Length;
+        
+        // Return appropriate beat state based on pattern
+        if (beatPosition == 0) {
+            return ACCENT; // First beat is always accented
+        } else if ((pattern >> (beatPosition - 1)) & 1) {
+            return WEAK;   // Other beats follow the pattern
+        }
+    }
+    
+    return SILENT;
 } 

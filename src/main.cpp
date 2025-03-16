@@ -98,24 +98,8 @@ void onClockPulse(uint32_t tick)
                 }
             }
             
-            // Update polyrhythm beat position for channel 2
-            if (state.getChannel(1).isEnabled()) {
-                uint8_t ch1Length = state.getChannel(0).getBarLength();
-                uint8_t ch2Length = state.getChannel(1).getBarLength();
-                
-                // Only update if both lengths are valid
-                if (ch1Length > 0 && ch2Length > 0) {
-                    state.getChannel(1).updatePolyrhythmBeat(quarterNoteTick, ch1Length, ch2Length);
-                    
-                    // Debug output
-                    Serial.print("Polyrhythm update: CH1=");
-                    Serial.print(ch1Length);
-                    Serial.print(", CH2=");
-                    Serial.print(ch2Length);
-                    Serial.print(", Beat=");
-                    Serial.println(state.getChannel(1).getCurrentBeat());
-                }
-            }
+            // We don't need to update polyrhythm beat position for channel 2 here
+            // since it's already handled by the PPQN-based mechanism above
         }
     }
 }

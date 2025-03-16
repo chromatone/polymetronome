@@ -4,7 +4,7 @@
 
 MetronomeChannel::MetronomeChannel(uint8_t channelId)
     : id(channelId), barLength(4), pattern(0), multiplier(1.0), currentBeat(0),
-      enabled(true), lastBeatTime(0), editing(false), editStep(0), beatProgress(0.0f) {}
+      enabled(channelId == 0), lastBeatTime(0), editing(false), editStep(0), beatProgress(0.0f) {}
 
 void MetronomeChannel::update(uint32_t globalBpm, uint32_t globalTick) {
     if (!enabled)

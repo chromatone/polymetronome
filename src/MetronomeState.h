@@ -60,10 +60,6 @@ public:
     uint32_t currentBeat = 0;
     bool longPressActive = false;
     uint8_t currentMultiplierIndex = 0;
-    
-    // Euclidean rhythm feedback
-    bool euclideanApplied = false;
-    uint32_t euclideanAppliedTime = 0;
 
     MetronomeState();
 
@@ -90,4 +86,9 @@ public:
     void adjustMultiplier(int8_t delta);
     void toggleRhythmMode();
     bool isPolyrhythm() const { return rhythmMode == POLYRHYTHM; }
+    
+    // Reset methods
+    void resetBpmToDefault();
+    void resetPatternsAndMultiplier();
+    void resetChannelPattern(uint8_t channelIndex);
 };

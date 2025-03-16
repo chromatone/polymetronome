@@ -1,5 +1,4 @@
 #include "EncoderController.h"
-#include <uClock.h>
 
 // Global pointer for ISR to access
 EncoderController *globalEncoderController = nullptr;
@@ -13,8 +12,8 @@ void IRAM_ATTR globalEncoderISR()
   }
 }
 
-EncoderController::EncoderController(MetronomeState &state)
-    : state(state)
+EncoderController::EncoderController(MetronomeState &state, Timing &timing)
+    : state(state), timing(timing)
 {
   globalEncoderController = this;
 }
@@ -95,10 +94,55 @@ void EncoderController::handleEncoderButton()
     if (currentTime - buttonPressStartTime > LONG_PRESS_DURATION_MS) {
       buttonLongPressActive = true;
       
-      // Handle long press for Euclidean rhythm reset
-      uint8_t channelIndex = state.getActiveChannel();
+      // Handle long press for BPM reset
+      if (state.isBpmSelected()) {
+        // Reset BPM to default (120)
+        state.resetBpmToDefault();
+        
+        // Update the tempo
+        timing.setTempo(state.bpm);
+        
+        // Exit editing mode
+        state.isEditing = false;
+        
+        // Debug output
+        Serial.println("BPM reset to default");
+        lastEncBtn = encBtn;
+        return;
+      }
       
-      // Only apply Euclidean rhythm if we're on a pattern
+      // Handle long press for multiplier and pattern reset
+      if (state.isMultiplierSelected()) {
+        // Reset patterns and multiplier
+        state.resetPatternsAndMultiplier();
+        
+        // Exit editing mode
+        state.isEditing = false;
+        
+        // Debug output
+        Serial.println("Patterns and multiplier reset");
+        lastEncBtn = encBtn;
+        return;
+      }
+      
+      // Handle long press for channel bar length to reset the channel pattern
+      uint8_t channelIndex = state.getActiveChannel();
+      if (state.isLengthSelected(channelIndex)) {
+        // Reset the channel pattern to default (only first beat active)
+        state.resetChannelPattern(channelIndex);
+        
+        // Exit editing mode
+        state.isEditing = false;
+        
+        // Debug output
+        Serial.print("Channel ");
+        Serial.print(channelIndex + 1);
+        Serial.println(" pattern reset");
+        lastEncBtn = encBtn;
+        return;
+      }
+      
+      // Handle long press for Euclidean rhythm reset
       if (state.isPatternSelected(channelIndex)) {
         auto &channel = state.getChannel(channelIndex);
         
@@ -127,10 +171,6 @@ void EncoderController::handleEncoderButton()
         // Generate Euclidean rhythm with the same number of active beats
         channel.generateEuclidean(activeBeats);
         
-        // Set a flag to show feedback
-        state.euclideanApplied = true;
-        state.euclideanAppliedTime = currentTime;
-        
         // Exit editing mode
         state.isEditing = false;
       }
@@ -150,19 +190,19 @@ void EncoderController::handleStartButton()
     if (!state.isRunning && !state.isPaused) {
       state.isRunning = true;
       state.isPaused = false;
-      uClock.start();
+      timing.start();
     } 
     // If running, pause playback
     else if (state.isRunning && !state.isPaused) {
       state.isRunning = false;
       state.isPaused = true;
-      uClock.pause();
+      timing.pause();
     }
     // If paused, resume playback
     else if (!state.isRunning && state.isPaused) {
       state.isRunning = true;
       state.isPaused = false;
-      uClock.pause(); // uClock.pause() toggles between pause and resume
+      timing.pause(); // pause() toggles between pause and resume
     }
   }
   lastStartBtn = startBtn;
@@ -184,7 +224,7 @@ void EncoderController::handleStopButton()
     state.lastPpqnTick = 0;
 
     // Stop the clock
-    uClock.stop();
+    timing.stop();
 
     // Reset all channels
     for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++)
@@ -215,7 +255,7 @@ void EncoderController::handleRotaryEncoder()
     if (state.isBpmSelected())
     {
       state.bpm = constrain(state.bpm + diff, MIN_GLOBAL_BPM, MAX_GLOBAL_BPM);
-      uClock.setTempo(state.bpm);
+      timing.setTempo(state.bpm);
     }
     else if (state.isMultiplierSelected())
     {

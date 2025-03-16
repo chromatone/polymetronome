@@ -29,11 +29,6 @@ void MetronomeState::update() {
             channel.updateProgress(globalTick);
         }
     }
-    
-    // Check if Euclidean feedback should be cleared
-    if (euclideanApplied && (millis() - euclideanAppliedTime > LONG_PRESS_DURATION_MS)) {
-        euclideanApplied = false;
-    }
 }
 
 void MetronomeState::updateTickFraction(uint32_t ppqnTick) {
@@ -138,4 +133,48 @@ void MetronomeState::adjustMultiplier(int8_t delta) {
 
 void MetronomeState::toggleRhythmMode() {
     rhythmMode = (rhythmMode == POLYMETER) ? POLYRHYTHM : POLYMETER;
+}
+
+void MetronomeState::resetBpmToDefault() {
+    bpm = DEFAULT_BPM;
+    
+    // Debug output
+    Serial.print("BPM reset to default: ");
+    Serial.println(DEFAULT_BPM);
+}
+
+void MetronomeState::resetPatternsAndMultiplier() {
+    // Reset multiplier to default (1.0)
+    currentMultiplierIndex = 0;
+    
+    // Reset all channel patterns
+    for (uint8_t i = 0; i < CHANNEL_COUNT; i++) {
+        MetronomeChannel &channel = getChannel(i);
+        
+        // Reset pattern to default (only first beat active)
+        channel.setPattern(0);
+        
+        // Reset bar length to default (4)
+        channel.setBarLength(4);
+    }
+    
+    // Reset rhythm mode to default (POLYMETER)
+    rhythmMode = POLYMETER;
+    
+    // Debug output
+    Serial.println("Patterns and multiplier reset to defaults");
+}
+
+void MetronomeState::resetChannelPattern(uint8_t channelIndex) {
+    if (channelIndex < CHANNEL_COUNT) {
+        MetronomeChannel &channel = getChannel(channelIndex);
+        
+        // Reset pattern to default (only first beat active)
+        channel.setPattern(0);
+        
+        // Debug output
+        Serial.print("Channel ");
+        Serial.print(channelIndex + 1);
+        Serial.println(" pattern reset to default");
+    }
 } 

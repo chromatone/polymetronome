@@ -30,6 +30,10 @@ private:
     bool editing;
     uint8_t editStep;
     float beatProgress;
+    
+    // For polyrhythm mode to prevent double triggers
+    uint32_t lastTriggeredBeatPosition;
+    uint32_t lastTriggeredTick;
 
 public:
     MetronomeChannel(uint8_t channelId);

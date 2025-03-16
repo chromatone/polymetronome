@@ -4,7 +4,8 @@
 
 MetronomeChannel::MetronomeChannel(uint8_t channelId)
     : id(channelId), barLength(4), pattern(0), multiplier(1.0), currentBeat(0),
-      enabled(channelId == 0), lastBeatTime(0), editing(false), editStep(0), beatProgress(0.0f) {}
+      enabled(channelId == 0), lastBeatTime(0), editing(false), editStep(0), beatProgress(0.0f),
+      lastTriggeredBeatPosition(UINT32_MAX), lastTriggeredTick(0) {}
 
 void MetronomeChannel::update(uint32_t globalBpm, uint32_t globalTick) {
     if (!enabled)
@@ -188,6 +189,8 @@ void MetronomeChannel::resetBeat() {
     currentBeat = 0;
     lastBeatTime = 0;
     beatProgress = 0.0f;
+    lastTriggeredBeatPosition = UINT32_MAX;
+    lastTriggeredTick = 0;
 }
 
 // New methods for polyrhythm mode
@@ -270,11 +273,29 @@ BeatState MetronomeChannel::getPolyrhythmBeatState(uint32_t ppqnTick, const Metr
         // Ensure we don't exceed the bar length
         beatPosition = beatPosition % ch2Length;
         
-        // Return appropriate beat state based on pattern
-        if (beatPosition == 0) {
-            return ACCENT; // First beat is always accented
-        } else if ((pattern >> (beatPosition - 1)) & 1) {
-            return WEAK;   // Other beats follow the pattern
+        // IMPORTANT: Check if this is a new beat position to prevent double triggers
+        // Only trigger if this is a different beat than the last one we processed
+        
+        // Only trigger if:
+        // 1. This is a different beat position than the last one we processed, OR
+        // 2. We've gone through a complete bar (tickInBar < last tickInBar)
+        bool shouldTrigger = (beatPosition != lastTriggeredBeatPosition) || 
+                             (ppqnTick - lastTriggeredTick > totalTicksInBar/2);
+        
+        if (shouldTrigger) {
+            // Update the last triggered position and tick
+            // We need to cast away const here because we're modifying member variables
+            // This is safe because we're not changing the logical state of the object
+            MetronomeChannel* nonConstThis = const_cast<MetronomeChannel*>(this);
+            nonConstThis->lastTriggeredBeatPosition = beatPosition;
+            nonConstThis->lastTriggeredTick = ppqnTick;
+            
+            // Return appropriate beat state based on pattern
+            if (beatPosition == 0) {
+                return ACCENT; // First beat is always accented
+            } else if ((pattern >> (beatPosition - 1)) & 1) {
+                return WEAK;   // Other beats follow the pattern
+            }
         }
     }
     

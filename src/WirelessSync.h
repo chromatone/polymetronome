@@ -85,6 +85,7 @@ private:
   uint32_t _sequenceNum;
   uint8_t _priority;
   bool _isLeader;
+  bool _initialized;
   
   // Track which sync messages have been sent
   uint32_t _lastSync24Tick;
@@ -140,6 +141,7 @@ public:
       _sequenceNum(0),
       _priority(1),
       _isLeader(false),
+      _initialized(false),
       _lastSync24Tick(0),
       _lastQuarterNote(0),
       _lastBarStart(0),
@@ -163,6 +165,9 @@ public:
   
   // Initialize ESP-NOW
   bool init();
+  
+  // Check if wireless sync is initialized
+  bool isInitialized() const { return _initialized; }
   
   // Set device as leader
   void setAsLeader(bool isLeader);

@@ -99,6 +99,7 @@ void Display::drawGlobalRow(const MetronomeState &state)
 
     // BPM display with selection frame
     sprintf(buffer, "%d BPM", state.bpm);
+    
     if (state.isBpmSelected())
     {
         display->drawFrame(7, 1, 45, 12);
@@ -113,6 +114,7 @@ void Display::drawGlobalRow(const MetronomeState &state)
 
     // Multiplier display
     sprintf(buffer, "x%s", state.getCurrentMultiplierName());
+    
     if (state.isMultiplierSelected())
     {
         display->drawFrame(55, 1, 16, 12);
@@ -185,41 +187,49 @@ void Display::drawGlobalProgress(const MetronomeState &state)
 
 void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex, uint8_t y)
 {
-    const MetronomeChannel &channel = state.getChannel(channelIndex);
     char buffer[32];
+    const MetronomeChannel &channel = state.getChannel(channelIndex);
 
-    // Channel beat indicator (4px wide block on the left)
-    if (channel.isEnabled() && state.isRunning)
+
+    // Channel beat indicator (flashing block)
+    if (state.isRunning && channel.isEnabled())
     {
-        // For polyrhythm mode, we need to check if we're on a beat for channel 2
+        // Calculate if this channel should blink on this beat
         bool shouldBlink = false;
-        float beatDuration = 60000.0f / state.getEffectiveBpm(); // Default beat duration
         
-        if (state.isPolyrhythm() && channelIndex == 1) {
-            // For channel 2 in polyrhythm mode, calculate the beat duration based on the ratio
-            uint8_t ch1Length = state.getChannel(0).getBarLength();
-            uint8_t ch2Length = channel.getBarLength();
-            
-            if (ch1Length > 0 && ch2Length > 0) {
-                // Calculate the ratio between the two channels
-                float ratio = float(ch2Length) / float(ch1Length);
+        if (state.isPolyrhythm()) {
+            // In polyrhythm mode, each channel has its own timing
+            // Channel 1 follows the global tick directly
+            if (channelIndex == 0) {
+                shouldBlink = (channel.getCurrentBeat() == 0);
+            } else {
+                // For channel 2, we need to check if we're at the start of its pattern
+                // This is more complex due to the polyrhythm relationship
+                uint8_t ch1Length = state.getChannel(0).getBarLength();
+                uint8_t ch2Length = channel.getBarLength();
                 
-                // Calculate the beat duration for channel 2
-                beatDuration = 60000.0f / (state.getEffectiveBpm() * ratio);
-                
-                // Get the current beat position directly from the channel
-                uint8_t beatPosition = channel.getCurrentBeat();
-                
-                // Check if this beat is active in the pattern
-                if (beatPosition == 0 || ((channel.getPattern() >> (beatPosition - 1)) & 1)) {
-                    shouldBlink = true;
+                if (ch1Length > 0 && ch2Length > 0) {
+                    // Calculate the position within the first channel's cycle (0.0 to 1.0)
+                    uint32_t currentTick = state.globalTick;
+                    float progress = float(currentTick % ch1Length) / float(ch1Length);
+                    
+                    // Add fractional part for smoother animation
+                    progress += state.tickFraction / float(ch1Length);
+                    
+                    // Calculate the beat position in channel 2
+                    float beatPosition = progress * float(ch2Length);
+                    
+                    // Blink on the first beat
+                    shouldBlink = (beatPosition < 0.1f || beatPosition > (ch2Length - 0.1f));
                 }
             }
         } else {
-            // For channel 1 or polymeter mode, use the normal beat state
-            BeatState beatState = channel.getBeatState();
-            shouldBlink = (beatState != SILENT);
+            // In polymeter mode, just check if we're at the start of this channel's pattern
+            shouldBlink = (channel.getCurrentBeat() == 0);
         }
+        
+        // Calculate beat duration based on BPM and multiplier
+        float beatDuration = 60000.0f / state.getEffectiveBpm();
         
         if (shouldBlink)
         {
@@ -295,25 +305,6 @@ void Display::drawChannelBlock(const MetronomeState &state, uint8_t channelIndex
         }
     }
     display->drawHLine(1, patternY, 126);
-    
-    // Show Euclidean rhythm applied message
-    if (state.euclideanApplied && state.isPatternSelected(channelIndex)) {
-        // Show message for 2 seconds
-        if (millis() - state.euclideanAppliedTime < LONG_PRESS_DURATION_MS) {
-            display->setDrawColor(0);
-            display->drawBox(30, patternY + 1, 70, 8);
-            display->setDrawColor(1);
-            display->drawStr(32, patternY + 8, "EUCLIDEAN");
-            
-            // Skip drawing the beat grid
-            display->setDrawColor(1);
-            return;
-        } else {
-            // Clear the flag after 2 seconds
-            MetronomeState &mutableState = const_cast<MetronomeState&>(state);
-            mutableState.euclideanApplied = false;
-        }
-    }
     
     // Get max length for visualization, depends on rhythm mode
     uint8_t maxLength;

@@ -102,6 +102,7 @@ bool WirelessSync::init() {
   // Initialize ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
+    _initialized = false;
     return false;
   }
   
@@ -116,6 +117,7 @@ bool WirelessSync::init() {
   
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
     Serial.println("Failed to add peer");
+    _initialized = false;
     return false;
   }
   
@@ -127,6 +129,7 @@ bool WirelessSync::init() {
   }
   Serial.println();
   
+  _initialized = true;
   return true;
 }
 

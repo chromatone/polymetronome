@@ -1,12 +1,14 @@
 #pragma once
 #include <Arduino.h>
 #include "MetronomeState.h"
+#include "Timing.h"
 #include "config.h"
 
 class EncoderController
 {
 private:
   MetronomeState &state;
+  Timing &timing;
 
   // Encoder state tracking
   volatile int32_t encoderValue = 0;
@@ -22,7 +24,7 @@ private:
   bool buttonLongPressActive = false;
 
 public:
-  EncoderController(MetronomeState &state);
+  EncoderController(MetronomeState &state, Timing &timing);
 
   void begin();
 

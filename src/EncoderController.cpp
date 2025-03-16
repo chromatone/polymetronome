@@ -29,12 +29,54 @@ void EncoderController::begin()
   attachInterrupt(digitalPinToInterrupt(ENCODER_A), globalEncoderISR, CHANGE);
 }
 
-void EncoderController::handleControls()
+bool EncoderController::handleControls()
 {
+  bool stateChanged = false;
+  
+  // Store initial state values to detect changes
+  uint16_t initialBpm = state.bpm;
+  uint8_t initialMultiplierIndex = state.currentMultiplierIndex;
+  MetronomeMode initialRhythmMode = state.rhythmMode;
+  
+  // Store initial channel states
+  struct ChannelState {
+    bool enabled;
+    uint8_t barLength;
+    uint16_t pattern;
+  };
+  
+  ChannelState initialChannelStates[MetronomeState::CHANNEL_COUNT];
+  for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
+    initialChannelStates[i].enabled = state.getChannel(i).isEnabled();
+    initialChannelStates[i].barLength = state.getChannel(i).getBarLength();
+    initialChannelStates[i].pattern = state.getChannel(i).getPattern();
+  }
+  
+  // Call the handler methods
   handleEncoderButton();
   handleStartButton();
   handleStopButton();
   handleRotaryEncoder();
+  
+  // Check if any state values have changed
+  if (initialBpm != state.bpm || 
+      initialMultiplierIndex != state.currentMultiplierIndex ||
+      initialRhythmMode != state.rhythmMode) {
+    stateChanged = true;
+  }
+  
+  // Check if any channel states have changed
+  for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
+    const MetronomeChannel& channel = state.getChannel(i);
+    if (initialChannelStates[i].enabled != channel.isEnabled() ||
+        initialChannelStates[i].barLength != channel.getBarLength() ||
+        initialChannelStates[i].pattern != channel.getPattern()) {
+      stateChanged = true;
+      break;
+    }
+  }
+  
+  return stateChanged;
 }
 
 void EncoderController::encoderISRHandler()
@@ -211,7 +253,61 @@ void EncoderController::handleStartButton()
 void EncoderController::handleStopButton()
 {
   bool stopBtn = digitalRead(BTN_STOP);
+  bool startBtn = digitalRead(BTN_START);
+  bool encoderBtn = digitalRead(ENCODER_BTN);
 
+  // Check for factory reset combination (all three buttons pressed at once)
+  if (stopBtn == LOW && startBtn == LOW && encoderBtn == LOW) {
+    if (!factoryResetDetected) {
+      factoryResetStartTime = millis();
+      factoryResetDetected = true;
+    } else if (millis() - factoryResetStartTime > FACTORY_RESET_DURATION_MS) {
+      // Reset all settings to factory defaults
+      state.resetBpmToDefault();
+      state.resetPatternsAndMultiplier();
+      
+      // Clear stored configuration
+      state.clearStorage();
+      
+      // Reset all state variables
+      state.isRunning = false;
+      state.isPaused = false;
+      state.currentBeat = 0;
+      state.globalTick = 0;
+      state.lastBeatTime = 0;
+      state.tickFraction = 0.0f;
+      state.lastPpqnTick = 0;
+      
+      // Reset all channels
+      for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++) {
+        state.getChannel(i).resetBeat();
+      }
+      
+      // Update tempo
+      timing.setTempo(state.bpm);
+      
+      // Debug output
+      Serial.println("FACTORY RESET PERFORMED");
+      
+      // Wait for buttons to be released
+      while (digitalRead(BTN_STOP) == LOW || digitalRead(BTN_START) == LOW || digitalRead(ENCODER_BTN) == LOW) {
+        delay(10);
+      }
+      
+      factoryResetDetected = false;
+    }
+    
+    // Skip normal stop button processing
+    lastStopBtn = stopBtn;
+    return;
+  } else {
+    // If any button is released, cancel factory reset detection
+    if (factoryResetDetected) {
+      factoryResetDetected = false;
+    }
+  }
+
+  // Normal stop button processing
   if (stopBtn != lastStopBtn && stopBtn == LOW)
   {
     // Reset all state variables

@@ -1,4 +1,5 @@
 #include "MetronomeState.h"
+#include "ConfigManager.h"
 
 uint32_t MetronomeState::gcd(uint32_t a, uint32_t b) const {
     while (b != 0) {
@@ -177,4 +178,20 @@ void MetronomeState::resetChannelPattern(uint8_t channelIndex) {
         Serial.print(channelIndex + 1);
         Serial.println(" pattern reset to default");
     }
+}
+
+// Configuration persistence methods
+bool MetronomeState::saveToStorage() {
+    Serial.println("Saving configuration to storage...");
+    return ConfigManager::saveConfig(*this);
+}
+
+bool MetronomeState::loadFromStorage() {
+    Serial.println("Loading configuration from storage...");
+    return ConfigManager::loadConfig(*this);
+}
+
+bool MetronomeState::clearStorage() {
+    Serial.println("Clearing configuration storage...");
+    return ConfigManager::clearConfig();
 } 

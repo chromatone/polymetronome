@@ -31,19 +31,19 @@ enum MetronomeMode
 class MetronomeState
 {
 private:
-    MetronomeChannel channels[2];
+    MetronomeChannel channels[FIXED_CHANNEL_COUNT];
     uint32_t longPressStart = 0;
 
     uint32_t gcd(uint32_t a, uint32_t b) const;
     uint32_t lcm(uint32_t a, uint32_t b) const;
 
 public:
-    static const uint8_t CHANNEL_COUNT = 2;
+    static const uint8_t CHANNEL_COUNT = FIXED_CHANNEL_COUNT;
 
     const float multiplierValues[MULTIPLIER_COUNT] = MULTIPLIERS;
     const char *multiplierNames[MULTIPLIER_COUNT] = MULTIPLIER_NAMES;
 
-    uint16_t bpm = 120;
+    uint16_t bpm = DEFAULT_BPM;
     bool isRunning = false;
     bool isPaused = false;
     volatile uint32_t globalTick = 0;    // Made volatile for ISR access
@@ -91,4 +91,9 @@ public:
     void resetBpmToDefault();
     void resetPatternsAndMultiplier();
     void resetChannelPattern(uint8_t channelIndex);
+    
+    // Configuration persistence methods
+    bool saveToStorage();
+    bool loadFromStorage();
+    bool clearStorage();
 };

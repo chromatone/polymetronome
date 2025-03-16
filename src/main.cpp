@@ -12,6 +12,7 @@
 #include "EncoderController.h"
 #include "WirelessSync.h"
 #include "Timing.h"
+#include "ConfigManager.h"
 
 MetronomeState state;
 Display display;
@@ -24,9 +25,28 @@ EncoderController encoderController(state, timing);
 // Global pointer to WirelessSync instance for pattern change notifications
 WirelessSync* globalWirelessSync = &wirelessSync;
 
+// Timer for periodic config saving
+unsigned long lastConfigSaveTime = 0;
+const unsigned long CONFIG_SAVE_INTERVAL = 60000; // Save every minute
+bool configModified = false;
+
 void setup()
 {
     Serial.begin(115200);
+    Serial.println("Metronome starting...");
+    
+    // Initialize EEPROM
+    if (!ConfigManager::init()) {
+        Serial.println("Failed to initialize EEPROM!");
+    }
+    
+    // Try to load saved configuration
+    if (!state.loadFromStorage()) {
+        Serial.println("Using default configuration");
+    } else {
+        Serial.println("Loaded configuration from storage");
+    }
+    
     solenoidController.init();
     audioController.init();
     display.begin();
@@ -64,7 +84,26 @@ void loop()
         display.startAnimation();
     }
 
-    encoderController.handleControls();
+    // Handle user input
+    bool stateChanged = encoderController.handleControls();
+    if (stateChanged) {
+        configModified = true;
+        
+        // Save immediately on important changes
+        // Check if we're not in pattern editing mode (which changes frequently)
+        if (!state.isEditing) {
+            // If we're changing BPM, rhythm mode, or channel properties, save right away
+            if (state.isBpmSelected() || state.isRhythmModeSelected() || 
+                state.isMultiplierSelected() || state.isChannelSelected()) {
+                
+                if (state.saveToStorage()) {
+                    Serial.println("Configuration saved after important change");
+                    configModified = false;
+                    lastConfigSaveTime = millis();
+                }
+            }
+        }
+    }
     
     // Update state
     state.update();
@@ -76,6 +115,17 @@ void loop()
     wirelessSync.checkLeaderStatus();
 
     display.update(state);
+    
+    // Periodically save configuration if modified
+    unsigned long currentTime = millis();
+    if (configModified && (currentTime - lastConfigSaveTime > CONFIG_SAVE_INTERVAL)) {
+        if (state.saveToStorage()) {
+            Serial.println("Configuration auto-saved");
+            configModified = false;
+            lastConfigSaveTime = currentTime;
+        }
+    }
+    
     // Prevent watchdog timeouts
     yield();
 }

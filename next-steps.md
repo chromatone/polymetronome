@@ -88,10 +88,6 @@ These code improvements focus on making the codebase more maintainable, extensib
    - Implement concrete commands like `ChangeBpmCommand`, `ToggleChannelCommand`, etc.
    - Modify `EncoderController` to use these commands instead of direct state manipulation
 
-4. **Extract Timing Engine**:
-   - Create a dedicated `TimingEngine` class to handle all timing-related logic
-   - Move the complex timing code from `onClockPulse()` in main.cpp to this class
-   - Add methods like `processTick()`, `calculatePolyrhythm()`, etc.
 
 ### Code Organization and Modularity
 

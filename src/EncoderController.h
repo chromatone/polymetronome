@@ -4,6 +4,12 @@
 #include "Timing.h"
 #include "config.h"
 
+// Duration for long press detection
+#define LONG_PRESS_DURATION_MS 1000
+
+// Duration required to hold all buttons for factory reset
+#define FACTORY_RESET_DURATION_MS 3000
+
 class EncoderController
 {
 private:
@@ -22,13 +28,19 @@ private:
   // Long press tracking
   uint32_t buttonPressStartTime = 0;
   bool buttonLongPressActive = false;
+  
+  // Factory reset detection
+  bool factoryResetDetected = false;
+  uint32_t factoryResetStartTime = 0;
 
 public:
   EncoderController(MetronomeState &state, Timing &timing);
 
   void begin();
 
-  void handleControls();
+  bool handleControls();
+
+  void resetEncoders();
 
   // ISR-compatible method for the encoder
   void encoderISRHandler();

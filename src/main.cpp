@@ -35,9 +35,9 @@ void setup()
     Serial.begin(115200);
     Serial.println("Metronome starting...");
     
-    // Initialize EEPROM
+    // Initialize Preferences
     if (!ConfigManager::init()) {
-        Serial.println("Failed to initialize EEPROM!");
+        Serial.println("Failed to initialize Preferences storage!");
     }
     
     // Try to load saved configuration
@@ -46,6 +46,9 @@ void setup()
     } else {
         Serial.println("Loaded configuration from storage");
     }
+    
+    // Close preferences to free resources during normal operation
+    ConfigManager::end();
     
     solenoidController.init();
     audioController.init();
@@ -96,11 +99,17 @@ void loop()
             if (state.isBpmSelected() || state.isRhythmModeSelected() || 
                 state.isMultiplierSelected() || state.isChannelSelected()) {
                 
+                // Initialize Preferences for saving
+                ConfigManager::init();
+                
                 if (state.saveToStorage()) {
                     Serial.println("Configuration saved after important change");
                     configModified = false;
                     lastConfigSaveTime = millis();
                 }
+                
+                // Close preferences to free resources
+                ConfigManager::end();
             }
         }
     }
@@ -119,11 +128,17 @@ void loop()
     // Periodically save configuration if modified
     unsigned long currentTime = millis();
     if (configModified && (currentTime - lastConfigSaveTime > CONFIG_SAVE_INTERVAL)) {
+        // Initialize Preferences for saving
+        ConfigManager::init();
+        
         if (state.saveToStorage()) {
             Serial.println("Configuration auto-saved");
             configModified = false;
             lastConfigSaveTime = currentTime;
         }
+        
+        // Close preferences to free resources
+        ConfigManager::end();
     }
     
     // Prevent watchdog timeouts

@@ -44,23 +44,6 @@
 // Configuration storage constants
 #define CONFIG_VERSION 1
 #define CONFIG_MAGIC_MARKER 0xCBEF // Magic bytes to verify config integrity
-#define CONFIG_STORAGE_ADDR 0 // Starting EEPROM address
 
 // Fixed number of channels (for now)
 #define FIXED_CHANNEL_COUNT 2
-
-// Configuration structure for persistent storage
-struct ChannelConfig {
-    bool enabled;
-    uint8_t barLength;
-    uint16_t pattern;
-};
-
-struct MetronomeConfig {
-    uint16_t magicMarker;    // To verify config integrity
-    uint8_t version;         // Config version for future compatibility
-    uint16_t bpm;            // Global BPM
-    uint8_t multiplierIndex; // Index into multiplierValues array
-    uint8_t rhythmMode;      // POLYMETER or POLYRHYTHM
-    ChannelConfig channels[FIXED_CHANNEL_COUNT]; // Channel configurations
-};

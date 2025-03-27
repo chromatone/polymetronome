@@ -4,10 +4,10 @@
 #define ENCODER_A 17
 #define ENCODER_B 18
 #define ENCODER_BTN 16
-#define BTN_START 26
-#define BTN_STOP 33
-#define SOLENOID_PIN 23
-#define SOLENOID_PIN2 19
+#define BTN_START 4
+#define BTN_STOP 19
+#define SOLENOID_PIN 14
+#define SOLENOID_PIN2 32
 #define DAC_PIN 25 // ESP32 DAC1 pin (GPIO25)
 
 // Display I2C pins
@@ -21,7 +21,7 @@
 #define MAX_BEATS 16
 #define SOLENOID_PULSE_MS 5
 #define ACCENT_PULSE_MS 7
-#define SOUND_DURATION_MS 25 // Duration of sound on each beat (in ms)
+#define SOUND_DURATION_MS 25        // Duration of sound on each beat (in ms)
 #define LONG_PRESS_DURATION_MS 1000 // Duration for long press in milliseconds
 
 // Audio settings

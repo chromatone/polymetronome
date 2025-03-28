@@ -7,11 +7,13 @@
 // Define strip sections and their order
 enum StripSection
 {
-  CH1_BLINK = 0,
+  BPM_START,
+  CH1_BLINK,
   CH1_PATTERN,
-  GLOBAL_BPM,
-  CH2_PATTERN,
+  BPM_MID,
   CH2_BLINK,
+  CH2_PATTERN,
+  BPM_END,
   SECTION_COUNT
 };
 
@@ -27,10 +29,6 @@ private:
   static const uint8_t CENTER_LED = 1;        // Space for central BPM indicator
   static const uint8_t MAX_PATTERN_SIZE = 16; // Maximum pattern length
   static const uint8_t BLINKER_SIZE = 1;      // Size of channel beat indicators
-
-  // Pattern direction flags
-  const bool CH1_REVERSE = true;  // Channel 1 pattern grows leftward from center
-  const bool CH2_REVERSE = false; // Channel 2 pattern grows rightward from center
 
   // Section start positions (calculated in constructor)
   uint8_t sectionStarts[SECTION_COUNT];
@@ -66,10 +64,8 @@ private:
 
   // Helper methods for bidirectional pattern display
   void drawPattern(const MetronomeChannel &channel, uint8_t startLed,
-                   uint8_t size, bool reverse, const MetronomeState &state, const CRGB &baseColor);
+                   uint8_t size, const MetronomeState &state, const CRGB &baseColor);
   uint8_t calculatePatternSpace(uint8_t barLength) const;
-  uint8_t mapPatternPosition(uint8_t position, uint8_t size, bool reverse) const;
-  uint8_t calculateBlinkerPosition(uint8_t patternLength, bool isChannel1) const;
 
 public:
   LEDController();

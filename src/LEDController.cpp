@@ -17,50 +17,6 @@ LEDController::LEDController()
   }
   memset(sectionStarts, 0, sizeof(sectionStarts));
   memset(sectionSizes, 0, sizeof(sectionSizes));
-
-  // Calculate center position
-  const uint8_t centerPos = NUM_LEDS / 2;
-
-  // Set constant sizes
-  sectionSizes[GLOBAL_BPM] = CENTER_LED;
-  sectionSizes[CH1_BLINK] = BLINKER_SIZE;
-  sectionSizes[CH2_BLINK] = BLINKER_SIZE;
-
-  // Calculate maximum available space for patterns
-  uint8_t totalPatternSpace = NUM_LEDS - CENTER_LED - (2 * BLINKER_SIZE);
-  uint8_t maxPatternSize = totalPatternSpace / 2;
-
-  // Set pattern section sizes
-  sectionSizes[CH1_PATTERN] = maxPatternSize;
-  sectionSizes[CH2_PATTERN] = maxPatternSize;
-
-  // Start with center position
-  sectionStarts[GLOBAL_BPM] = centerPos;
-
-  // Calculate CH1 sections (from center to left)
-  sectionStarts[CH1_PATTERN] = centerPos - maxPatternSize;
-  sectionStarts[CH1_BLINK] = sectionStarts[CH1_PATTERN] - BLINKER_SIZE;
-
-  // Calculate CH2 sections (from center to right)
-  sectionStarts[CH2_PATTERN] = centerPos + CENTER_LED;
-  sectionStarts[CH2_BLINK] = sectionStarts[CH2_PATTERN] + maxPatternSize;
-
-  // Debug output
-  Serial.println("\nLED Strip Layout:");
-  const char *sectionNames[] = {
-      "CH1_BLINK", "CH1_PATTERN", "GLOBAL_BPM", "CH2_PATTERN", "CH2_BLINK"};
-
-  for (int i = 0; i < SECTION_COUNT; i++)
-  {
-    uint8_t end = sectionStarts[i] + sectionSizes[i] - 1;
-    Serial.printf("%s: start=%d, size=%d (end=%d)\n",
-                  sectionNames[i],
-                  sectionStarts[i],
-                  sectionSizes[i],
-                  end);
-  }
-
-  Serial.printf("Total LEDs: %d, Center: %d\n", NUM_LEDS, centerPos);
 }
 
 LEDController::~LEDController()
@@ -105,7 +61,7 @@ CRGB LEDController::applyBrightness(CRGB color, uint8_t brightness) const
 }
 
 void LEDController::drawPattern(const MetronomeChannel &channel, uint8_t startLed,
-                                uint8_t size, bool reverse, const MetronomeState &state,
+                                uint8_t size, const MetronomeState &state,
                                 const CRGB &baseColor)
 {
   if (!channel.isEnabled())
@@ -113,12 +69,6 @@ void LEDController::drawPattern(const MetronomeChannel &channel, uint8_t startLe
     fill_solid(leds + startLed, size, CRGB::Black);
     return;
   }
-
-  uint8_t barLength = channel.getBarLength();
-  uint8_t patternSpace = calculatePatternSpace(barLength);
-
-  // Calculate pattern start position to align with center
-  uint8_t patternStartOffset = reverse ? (size - patternSpace) : 0;
 
   // First fill all LEDs with black
   fill_solid(leds + startLed, size, CRGB::Black);
@@ -129,43 +79,45 @@ void LEDController::drawPattern(const MetronomeChannel &channel, uint8_t startLe
 
   if (isChannel2Polyrhythm)
   {
-    // Calculate the exact fractional position for channel 2
     uint8_t ch1Length = state.getChannel(0).getBarLength();
     float cycleProgress = float(state.globalTick % ch1Length) / float(ch1Length);
     cycleProgress += state.tickFraction / float(ch1Length);
-    float beatPosition = cycleProgress * float(barLength);
-    currentBeat = uint8_t(beatPosition) % barLength;
+    float beatPosition = cycleProgress * float(channel.getBarLength());
+    currentBeat = uint8_t(beatPosition) % channel.getBarLength();
   }
   else
   {
     currentBeat = channel.getCurrentBeat();
   }
 
-  // Draw pattern up to the current bar length
-  for (uint8_t i = 0; i < patternSpace; i++)
+  // Draw pattern
+  uint8_t barLength = channel.getBarLength();
+  uint8_t patternSpace = calculatePatternSpace(barLength);
+
+  for (uint8_t i = 0; i < patternSpace && i < size; i++)
   {
-    uint8_t mappedPos = patternStartOffset + (reverse ? (patternSpace - 1 - i) : i);
-    if (mappedPos < size)
+    bool isActive = channel.getPatternBit(i);
+    bool isCurrent = (i == currentBeat);
+
+    CRGB color;
+    if (isCurrent && isActive)
     {
-      bool isActive = channel.getPatternBit(i);
-      bool isCurrent = (i == currentBeat);
-
-      CRGB color;
-      if (isCurrent)
-      {
-        color = applyBrightness(baseColor, isActive ? ACTIVE_BRIGHTNESS : NORMAL_BRIGHTNESS);
-      }
-      else if (isActive)
-      {
-        color = applyBrightness(baseColor, INACTIVE_BRIGHTNESS);
-      }
-      else
-      {
-        color = applyBrightness(baseColor, INACTIVE_BRIGHTNESS / 4);
-      }
-
-      leds[startLed + mappedPos] = color;
+      color = CRGB::White;
     }
+    else if (isActive)
+    {
+      color = baseColor;
+    }
+    else if (isCurrent)
+    {
+      color = CRGB(baseColor).nscale8(64);
+    }
+    else
+    {
+      color = CRGB(baseColor).nscale8(25);
+    }
+
+    leds[startLed + i] = color;
   }
 }
 
@@ -175,62 +127,89 @@ uint8_t LEDController::calculatePatternSpace(uint8_t barLength) const
   return min(barLength, MAX_PATTERN_SIZE);
 }
 
-uint8_t LEDController::mapPatternPosition(uint8_t position, uint8_t size, bool reverse) const
-{
-  return reverse ? (size - 1 - position) : position;
-}
-
-uint8_t LEDController::calculateBlinkerPosition(uint8_t patternLength, bool isChannel1) const
-{
-  // Simply return first LED for CH1 and last LED for CH2
-  return isChannel1 ? 0 : (NUM_LEDS - 1);
-}
-
 void LEDController::updateSection(StripSection section, const MetronomeState &state)
 {
-  if (section >= SECTION_COUNT)
+  // Dynamically calculate section positions based on CH1 pattern length
+  uint8_t ch1Length = state.getChannel(0).getBarLength();
+  uint8_t ch1PatternSpace = calculatePatternSpace(ch1Length);
+
+  // Calculate starting positions dynamically
+  uint8_t currentPos = 0;
+
+  // BPM start
+  if (section == BPM_START)
+  {
+    leds[currentPos] = (state.isRunning && !state.isPaused && isFlashActive(globalFlash))
+                           ? CRGB::White
+                           : CRGB::Black;
     return;
+  }
+  currentPos += 1;
 
-  uint8_t start = sectionStarts[section];
-  uint8_t size = sectionSizes[section];
-
-  if (start + size > NUM_LEDS)
+  // CH1 blink
+  if (section == CH1_BLINK)
   {
-    Serial.printf("LED bounds error: section=%d, start=%d, size=%d\n",
-                  section, start, size);
+    if (state.isRunning && !state.isPaused &&
+        state.getChannel(0).isEnabled() && isFlashActive(channelFlash[0]))
+    {
+      leds[currentPos] = CH1_COLOR;
+    }
+    else
+    {
+      leds[currentPos] = CRGB::Black;
+    }
     return;
   }
+  currentPos += BLINKER_SIZE;
 
-  switch (section)
+  // CH1 pattern
+  if (section == CH1_PATTERN)
   {
-  case GLOBAL_BPM:
-    leds[start] = (state.isRunning && !state.isPaused && isFlashActive(globalFlash))
-                      ? CRGB::White
-                      : CRGB::Black;
-    break;
-
-  case CH1_PATTERN:
-  case CH2_PATTERN:
-  {
-    uint8_t ch = (section == CH1_PATTERN) ? 0 : 1;
-    const MetronomeChannel &channel = state.getChannel(ch);
-    drawPattern(channel, start, size, (section == CH1_PATTERN), state,
-                ch == 0 ? CH1_COLOR : CH2_COLOR);
-    break;
+    drawPattern(state.getChannel(0), currentPos, ch1PatternSpace, state, CH1_COLOR);
+    return;
   }
+  currentPos += ch1PatternSpace;
 
-  case CH1_BLINK:
-  case CH2_BLINK:
+  // BPM mid
+  if (section == BPM_MID)
   {
-    uint8_t ch = (section == CH1_BLINK) ? 0 : 1;
-    const MetronomeChannel &channel = state.getChannel(ch);
-    bool isFlashing = state.isRunning && !state.isPaused &&
-                      channel.isEnabled() && isFlashActive(channelFlash[ch]);
-
-    uint8_t blinkerPos = calculateBlinkerPosition(0, ch == 0); // Pattern length not needed anymore
-    leds[blinkerPos] = isFlashing ? (ch == 0 ? CH1_COLOR : CH2_COLOR) : CRGB::Black;
-    break;
+    leds[currentPos] = (state.isRunning && !state.isPaused && isFlashActive(globalFlash))
+                           ? CRGB::White
+                           : CRGB::Black;
+    return;
   }
+  currentPos += 1;
+
+  // CH2 blink
+  if (section == CH2_BLINK)
+  {
+    if (state.isRunning && !state.isPaused &&
+        state.getChannel(1).isEnabled() && isFlashActive(channelFlash[1]))
+    {
+      leds[currentPos] = CH2_COLOR;
+    }
+    else
+    {
+      leds[currentPos] = CRGB::Black;
+    }
+    return;
+  }
+  currentPos += BLINKER_SIZE;
+
+  // CH2 pattern
+  if (section == CH2_PATTERN)
+  {
+    drawPattern(state.getChannel(1), currentPos, MAX_PATTERN_SIZE, state, CH2_COLOR);
+    return;
+  }
+  currentPos += state.getChannel(1).getBarLength();
+
+  // BPM end
+  if (section == BPM_END)
+  {
+    leds[currentPos] = (state.isRunning && !state.isPaused && isFlashActive(globalFlash))
+                           ? CRGB::White
+                           : CRGB::Black;
   }
 }
 

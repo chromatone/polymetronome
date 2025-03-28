@@ -47,3 +47,7 @@
 
 // Fixed number of channels (for now)
 #define FIXED_CHANNEL_COUNT 2
+
+// LED strip configuration
+#define LED_BRIGHTNESS 50
+#define LED_BEAT_DURATION_MS 100

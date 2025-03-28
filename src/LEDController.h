@@ -7,11 +7,11 @@
 // Define strip sections and their order
 enum StripSection
 {
-  CH1_PATTERN = 0,
-  CH1_BLINK,
+  CH1_BLINK = 0,
+  CH1_PATTERN,
   GLOBAL_BPM,
-  CH2_BLINK,
   CH2_PATTERN,
+  CH2_BLINK,
   SECTION_COUNT
 };
 
@@ -69,6 +69,7 @@ private:
                    uint8_t size, bool reverse, const MetronomeState &state, const CRGB &baseColor);
   uint8_t calculatePatternSpace(uint8_t barLength) const;
   uint8_t mapPatternPosition(uint8_t position, uint8_t size, bool reverse) const;
+  uint8_t calculateBlinkerPosition(uint8_t patternLength, bool isChannel1) const;
 
 public:
   LEDController();

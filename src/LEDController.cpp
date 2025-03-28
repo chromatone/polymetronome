@@ -9,55 +9,46 @@ LEDController::LEDController()
     : leds(nullptr),
       numLeds(NUM_LEDS)
 {
-  // Initialize flash states
+  // Initialize flash states and clear arrays
   globalFlash = {0, false};
   for (int i = 0; i < FIXED_CHANNEL_COUNT; i++)
   {
     channelFlash[i] = {0, false};
   }
-
-  // Clear all arrays
   memset(sectionStarts, 0, sizeof(sectionStarts));
   memset(sectionSizes, 0, sizeof(sectionSizes));
 
-  // Calculate available space for patterns after reserving space for
-  // center LED and blinkers
+  // Calculate center position
   const uint8_t centerPos = NUM_LEDS / 2;
-  const uint8_t patternSpace = (NUM_LEDS - CENTER_LED - (2 * BLINKER_SIZE)) / 2;
 
-  // Set section sizes
-  sectionSizes[CH1_PATTERN] = patternSpace;
-  sectionSizes[CH2_PATTERN] = patternSpace;
+  // Set constant sizes
   sectionSizes[GLOBAL_BPM] = CENTER_LED;
   sectionSizes[CH1_BLINK] = BLINKER_SIZE;
   sectionSizes[CH2_BLINK] = BLINKER_SIZE;
 
-  // Calculate positions from left to right
-  uint8_t currentPos = 0;
+  // Calculate maximum available space for patterns
+  uint8_t totalPatternSpace = NUM_LEDS - CENTER_LED - (2 * BLINKER_SIZE);
+  uint8_t maxPatternSize = totalPatternSpace / 2;
 
-  // Channel 1 pattern (starts from left)
-  sectionStarts[CH1_PATTERN] = currentPos;
-  currentPos += sectionSizes[CH1_PATTERN];
+  // Set pattern section sizes
+  sectionSizes[CH1_PATTERN] = maxPatternSize;
+  sectionSizes[CH2_PATTERN] = maxPatternSize;
 
-  // Channel 1 blink
-  sectionStarts[CH1_BLINK] = currentPos;
-  currentPos += sectionSizes[CH1_BLINK];
-
-  // Global BPM (center)
+  // Start with center position
   sectionStarts[GLOBAL_BPM] = centerPos;
-  currentPos = centerPos + CENTER_LED;
 
-  // Channel 2 blink
-  sectionStarts[CH2_BLINK] = currentPos;
-  currentPos += sectionSizes[CH2_BLINK];
+  // Calculate CH1 sections (from center to left)
+  sectionStarts[CH1_PATTERN] = centerPos - maxPatternSize;
+  sectionStarts[CH1_BLINK] = sectionStarts[CH1_PATTERN] - BLINKER_SIZE;
 
-  // Channel 2 pattern
-  sectionStarts[CH2_PATTERN] = currentPos;
+  // Calculate CH2 sections (from center to right)
+  sectionStarts[CH2_PATTERN] = centerPos + CENTER_LED;
+  sectionStarts[CH2_BLINK] = sectionStarts[CH2_PATTERN] + maxPatternSize;
 
   // Debug output
   Serial.println("\nLED Strip Layout:");
   const char *sectionNames[] = {
-      "CH1_PATTERN", "CH1_BLINK", "GLOBAL_BPM", "CH2_BLINK", "CH2_PATTERN"};
+      "CH1_BLINK", "CH1_PATTERN", "GLOBAL_BPM", "CH2_PATTERN", "CH2_BLINK"};
 
   for (int i = 0; i < SECTION_COUNT; i++)
   {
@@ -67,13 +58,6 @@ LEDController::LEDController()
                   sectionStarts[i],
                   sectionSizes[i],
                   end);
-
-    // Validate bounds
-    if (sectionStarts[i] + sectionSizes[i] > NUM_LEDS)
-    {
-      Serial.printf("ERROR: Section %s exceeds LED strip bounds!\n",
-                    sectionNames[i]);
-    }
   }
 
   Serial.printf("Total LEDs: %d, Center: %d\n", NUM_LEDS, centerPos);
@@ -193,23 +177,23 @@ uint8_t LEDController::calculatePatternSpace(uint8_t barLength) const
 
 uint8_t LEDController::mapPatternPosition(uint8_t position, uint8_t size, bool reverse) const
 {
-  if (reverse)
-  {
-    return size - 1 - position;
-  }
-  return position;
+  return reverse ? (size - 1 - position) : position;
+}
+
+uint8_t LEDController::calculateBlinkerPosition(uint8_t patternLength, bool isChannel1) const
+{
+  // Simply return first LED for CH1 and last LED for CH2
+  return isChannel1 ? 0 : (NUM_LEDS - 1);
 }
 
 void LEDController::updateSection(StripSection section, const MetronomeState &state)
 {
-  // Validate section bounds
   if (section >= SECTION_COUNT)
     return;
 
   uint8_t start = sectionStarts[section];
   uint8_t size = sectionSizes[section];
 
-  // Validate LED array bounds
   if (start + size > NUM_LEDS)
   {
     Serial.printf("LED bounds error: section=%d, start=%d, size=%d\n",
@@ -220,15 +204,9 @@ void LEDController::updateSection(StripSection section, const MetronomeState &st
   switch (section)
   {
   case GLOBAL_BPM:
-    // Center LED for global tempo
-    if (state.isRunning && !state.isPaused && isFlashActive(globalFlash))
-    {
-      leds[start] = CRGB::White;
-    }
-    else
-    {
-      leds[start] = CRGB::Black;
-    }
+    leds[start] = (state.isRunning && !state.isPaused && isFlashActive(globalFlash))
+                      ? CRGB::White
+                      : CRGB::Black;
     break;
 
   case CH1_PATTERN:
@@ -236,9 +214,8 @@ void LEDController::updateSection(StripSection section, const MetronomeState &st
   {
     uint8_t ch = (section == CH1_PATTERN) ? 0 : 1;
     const MetronomeChannel &channel = state.getChannel(ch);
-    const CRGB &channelColor = (ch == 0) ? CH1_COLOR : CH2_COLOR;
-
-    drawPattern(channel, start, size, (section == CH1_PATTERN), state, channelColor);
+    drawPattern(channel, start, size, (section == CH1_PATTERN), state,
+                ch == 0 ? CH1_COLOR : CH2_COLOR);
     break;
   }
 
@@ -250,26 +227,8 @@ void LEDController::updateSection(StripSection section, const MetronomeState &st
     bool isFlashing = state.isRunning && !state.isPaused &&
                       channel.isEnabled() && isFlashActive(channelFlash[ch]);
 
-    uint8_t patternLength = calculatePatternSpace(channel.getBarLength());
-    uint8_t blinkerPos;
-
-    if (section == CH1_BLINK)
-    {
-      // Always place CH1 blinker at the start of its section
-      blinkerPos = sectionStarts[CH1_BLINK];
-    }
-    else
-    {
-      // Always place CH2 blinker at the start of its section
-      blinkerPos = sectionStarts[CH2_BLINK];
-    }
-
-    // Safety check
-    if (blinkerPos < NUM_LEDS)
-    {
-      const CRGB &channelColor = (ch == 0) ? CH1_COLOR : CH2_COLOR;
-      leds[blinkerPos] = isFlashing ? channelColor : CRGB::Black;
-    }
+    uint8_t blinkerPos = calculateBlinkerPosition(0, ch == 0); // Pattern length not needed anymore
+    leds[blinkerPos] = isFlashing ? (ch == 0 ? CH1_COLOR : CH2_COLOR) : CRGB::Black;
     break;
   }
   }
@@ -382,9 +341,8 @@ void LEDController::startupAnimation()
     FastLED.show();
     delay(20);
     leds[i] = CRGB::Black;
+    FastLED.show(); // Add show after clearing to prevent ghosting
   }
-
-  // Show ready state
-  leds[0] = CRGB::Green;
+  FastLED.clear(); // Ensure all LEDs are off
   FastLED.show();
 }

@@ -4,14 +4,28 @@
 #include "MetronomeState.h"
 #include "config.h"
 
+// Define strip sections and their order
+enum StripSection
+{
+  CH1_BLINK = 0,
+  CH1_PATTERN,
+  GLOBAL_BPM,
+  CH2_PATTERN,
+  CH2_BLINK,
+  SECTION_COUNT
+};
+
 class LEDController
 {
 private:
   CRGB *leds;
   const uint8_t numLeds;
-  const uint8_t mainSection;
-  const uint8_t channelSection;
   static const uint8_t LEDS_PER_INDICATOR = 3;
+  static const uint8_t PATTERN_SECTION_SIZE = 11; // (33 - 5*3) / 2 = 11 LEDs per pattern
+
+  // Section start positions (calculated in constructor)
+  uint8_t sectionStarts[SECTION_COUNT];
+  uint8_t sectionSizes[SECTION_COUNT];
 
   struct FlashState
   {
@@ -22,12 +36,12 @@ private:
   FlashState globalFlash;
   FlashState channelFlash[FIXED_CHANNEL_COUNT];
 
-  void updateGlobalIndicator(const MetronomeState &state);
-  void updateChannelIndicators(const MetronomeState &state);
-  void updateChannelPatterns(const MetronomeState &state);
+  // Helper methods
+  void updateSection(StripSection section, const MetronomeState &state);
   bool isFlashActive(const FlashState &flash) const;
   void startFlash(FlashState &flash);
-  CRGB getPatternColor(const MetronomeChannel &channel, uint8_t position) const;
+  CRGB getPatternColor(const MetronomeChannel &channel, uint8_t position, const MetronomeState &state) const;
+  float getPolyrhythmProgress(const MetronomeChannel &channel) const;
 
 public:
   LEDController();

@@ -7,11 +7,22 @@
 
 LEDController::LEDController()
     : leds(nullptr),
-      numLeds(NUM_LEDS),
-      mainSection(LEDS_PER_INDICATOR * (1 + FIXED_CHANNEL_COUNT)),
-      channelSection((NUM_LEDS - (LEDS_PER_INDICATOR * (1 + FIXED_CHANNEL_COUNT))) / FIXED_CHANNEL_COUNT)
+      numLeds(NUM_LEDS)
 {
-  // Constructor body can remain empty as initialization is done in init()
+  // Calculate section positions
+  for (int i = 0; i < SECTION_COUNT; i++)
+  {
+    if (i == CH1_PATTERN || i == CH2_PATTERN)
+    {
+      sectionSizes[i] = PATTERN_SECTION_SIZE;
+    }
+    else
+    {
+      sectionSizes[i] = LEDS_PER_INDICATOR;
+    }
+
+    sectionStarts[i] = (i == 0) ? 0 : sectionStarts[i - 1] + sectionSizes[i - 1];
+  }
 }
 
 LEDController::~LEDController()
@@ -45,31 +56,89 @@ void LEDController::init()
   startupAnimation();
 }
 
-void LEDController::updateGlobalIndicator(const MetronomeState &state)
+void LEDController::updateSection(StripSection section, const MetronomeState &state)
 {
-  // Global tempo indicator (first section)
-  bool shouldShow = state.isRunning && !state.isPaused && isFlashActive(globalFlash);
-  for (int i = 0; i < LEDS_PER_INDICATOR; i++)
+  uint8_t start = sectionStarts[section];
+  uint8_t size = sectionSizes[section];
+
+  switch (section)
   {
-    leds[i] = shouldShow ? CRGB::White : CRGB::Black;
+  case CH1_BLINK:
+    if (state.isRunning && !state.isPaused &&
+        state.getChannel(0).isEnabled() && isFlashActive(channelFlash[0]))
+    {
+      fill_solid(leds + start, size, CRGB::White);
+    }
+    else
+    {
+      fill_solid(leds + start, size, CRGB::Black);
+    }
+    break;
+
+  case CH2_BLINK:
+    if (state.isRunning && !state.isPaused &&
+        state.getChannel(1).isEnabled() && isFlashActive(channelFlash[1]))
+    {
+      fill_solid(leds + start, size, CRGB::White);
+    }
+    else
+    {
+      fill_solid(leds + start, size, CRGB::Black);
+    }
+    break;
+
+  case GLOBAL_BPM:
+    if (state.isRunning && !state.isPaused && isFlashActive(globalFlash))
+    {
+      fill_solid(leds + start, size, CRGB::White);
+    }
+    else
+    {
+      fill_solid(leds + start, size, CRGB::Black);
+    }
+    break;
+
+  case CH1_PATTERN:
+  case CH2_PATTERN:
+  {
+    uint8_t ch = (section == CH1_PATTERN) ? 0 : 1;
+    const MetronomeChannel &channel = state.getChannel(ch);
+
+    // Get number of positions to show based on bar length
+    uint8_t visiblePositions = min(size, channel.getBarLength());
+
+    // Calculate spacing to distribute positions evenly
+    float spacing = float(size) / float(visiblePositions);
+
+    // Fill background
+    fill_solid(leds + start, size, CRGB::Black);
+
+    // Draw pattern positions
+    if (channel.isEnabled())
+    {
+      for (uint8_t i = 0; i < visiblePositions; i++)
+      {
+        uint8_t ledPos = uint8_t(i * spacing);
+        if (ledPos < size)
+        {
+          // Pass state to getPatternColor
+          leds[start + ledPos] = getPatternColor(channel, i, state);
+        }
+      }
+    }
+    break;
+  }
   }
 }
 
-void LEDController::updateChannelIndicators(const MetronomeState &state)
+void LEDController::update(const MetronomeState &state)
 {
-  for (int ch = 0; ch < FIXED_CHANNEL_COUNT; ch++)
+  // Update all sections in defined order
+  for (int i = 0; i < SECTION_COUNT; i++)
   {
-    const MetronomeChannel &channel = state.getChannel(ch);
-    int startLed = LEDS_PER_INDICATOR * (1 + ch);
-
-    bool shouldShow = state.isRunning && !state.isPaused &&
-                      channel.isEnabled() && isFlashActive(channelFlash[ch]);
-
-    for (int i = 0; i < LEDS_PER_INDICATOR; i++)
-    {
-      leds[startLed + i] = shouldShow ? CRGB::White : CRGB::Black;
-    }
+    updateSection(static_cast<StripSection>(i), state);
   }
+  FastLED.show();
 }
 
 void LEDController::onGlobalBeat()
@@ -85,40 +154,68 @@ void LEDController::onChannelBeat(uint8_t channel)
   }
 }
 
-CRGB LEDController::getPatternColor(const MetronomeChannel &channel, uint8_t position) const
+CRGB LEDController::getPatternColor(const MetronomeChannel &channel, uint8_t position, const MetronomeState &state) const
 {
-  if (position == channel.getCurrentBeat())
-  {
-    return channel.getPatternBit(position) ? CRGB::White : CRGB::Red;
-  }
-  return CRGB::Black;
-}
+    if (!channel.isEnabled())
+        return CRGB::Black;
 
-void LEDController::updateChannelPatterns(const MetronomeState &state)
-{
-  for (int ch = 0; ch < FIXED_CHANNEL_COUNT; ch++)
-  {
-    const MetronomeChannel &channel = state.getChannel(ch);
-    if (channel.isEnabled())
+    bool isCurrentBeat;
+    uint8_t currentPosition;
+
+    if (channel.getId() == 1 && state.isPolyrhythm())
     {
-      int startLed = mainSection + (ch * channelSection);
-      int endLed = startLed + channelSection;
+        uint8_t ch1Length = state.getChannel(0).getBarLength();
+        uint8_t ch2Length = channel.getBarLength();
 
-      for (int led = startLed; led < endLed; led++)
-      {
-        uint8_t position = led - startLed;
-        leds[led] = getPatternColor(channel, position);
-      }
+        if (ch1Length > 0 && ch2Length > 0)
+        {
+            // Calculate the normalized progress (0.0 to 1.0) within channel 1's cycle
+            float cycleProgress = float(state.globalTick % ch1Length) / float(ch1Length);
+            
+            // Add fractional part for smooth movement
+            cycleProgress += state.tickFraction / float(ch1Length);
+            
+            // Calculate channel 2's beat position
+            float beatPosition = cycleProgress * float(ch2Length);
+            currentPosition = uint8_t(beatPosition) % ch2Length;
+            
+            // Calculate how far we are into the current beat (0.0 to 1.0)
+            float beatFraction = beatPosition - float(currentPosition);
+            
+            // Use a wider window for the "current" position to match the LED flash duration
+            // LED_BEAT_DURATION_MS is typically 100ms, so we'll use a proportional window
+            float windowSize = float(LED_BEAT_DURATION_MS) / (60000.0f / state.getEffectiveBpm());
+            
+            // Position is current if we're within the window
+            isCurrentBeat = (position == currentPosition) && (beatFraction < windowSize);
+        }
+        else
+        {
+            return CRGB::Black;
+        }
     }
-  }
-}
+    else
+    {
+        // Normal pattern visualization for channel 1 and polymeter
+        currentPosition = channel.getCurrentBeat();
+        isCurrentBeat = (position == currentPosition);
+    }
 
-void LEDController::update(const MetronomeState &state)
-{
-  updateGlobalIndicator(state);
-  updateChannelIndicators(state);
-  updateChannelPatterns(state);
-  FastLED.show();
+    // Return appropriate color based on pattern and current position
+    if (isCurrentBeat && channel.getPatternBit(position))
+    {
+        return CRGB::White;  // Active beat, current position
+    }
+    else if (isCurrentBeat)
+    {
+        return CRGB::Red;    // Inactive beat, current position
+    }
+    else if (channel.getPatternBit(position))
+    {
+        return CRGB(32, 32, 32);  // Active beat, not current
+    }
+
+    return CRGB::Black;  // Inactive beat, not current
 }
 
 void LEDController::clear()

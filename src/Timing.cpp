@@ -163,64 +163,60 @@ void Timing::onClockPulse(uint32_t tick)
         return;
 
     // Calculate effective tick based on multiplier
-    uint32_t effectiveTick = tick * state.getCurrentMultiplier();
+    float multiplier = state.getCurrentMultiplier();
+    uint32_t effectiveTick = uint32_t(tick * multiplier);
 
     // Convert PPQN ticks to quarter note beats
     uint32_t quarterNoteTick = effectiveTick / 96;
 
-    // In polyrhythm mode, we need more frequent checks to catch all subdivisions
-    bool isPolyrhythm = state.isPolyrhythm();
-
-    // For polyrhythm, use the precise timing method for channel 2
-    // This is the ONLY place where channel 2 beats are processed in polyrhythm mode
-    if (isPolyrhythm && state.getChannel(1).isEnabled())
+    // In polyrhythm mode, we need more frequent checks
+    if (state.isPolyrhythm() && state.getChannel(1).isEnabled())
     {
-        // Check if this tick should trigger a beat for channel 2 based on its polyrhythm subdivision
-        BeatState ch2State = state.getChannel(1).getPolyrhythmBeatState(tick, state);
+        // Check for channel 2 beats more frequently for smoother polyrhythm
+        MetronomeChannel &channel2 = state.getChannel(1);
+        BeatState ch2State = channel2.getPolyrhythmBeatState(tick, state);
+
         if (ch2State != SILENT)
         {
-            // Trigger the beat event for channel 2
             onBeatEvent(1, ch2State);
+            // Update the current beat for visualization
+            uint8_t ch1Length = state.getChannel(0).getBarLength();
+            float cycleProgress = float(state.globalTick % ch1Length) / float(ch1Length);
+            cycleProgress += state.tickFraction / float(ch1Length);
+            float beatPosition = cycleProgress * float(channel2.getBarLength());
+            channel2.updateBeat(uint32_t(beatPosition));
         }
     }
 
-    // Only process quarter note boundaries for channel 1 and for polymeter mode
+    // Process quarter note boundaries
     if (effectiveTick % 96 == 0)
     {
         state.globalTick = quarterNoteTick;
         state.lastBeatTime = quarterNoteTick;
 
-        // In polymeter mode, handle both channels
-        if (!isPolyrhythm)
+        // Always process channel 1 on quarter notes
+        MetronomeChannel &channel1 = state.getChannel(0);
+        if (channel1.isEnabled())
         {
-            for (uint8_t i = 0; i < MetronomeState::CHANNEL_COUNT; i++)
+            channel1.updateBeat(quarterNoteTick);
+            BeatState ch1State = channel1.getBeatState();
+            if (ch1State != SILENT)
             {
-                MetronomeChannel &channel = state.getChannel(i);
-                if (channel.isEnabled())
-                {
-                    channel.updateBeat(quarterNoteTick);
-
-                    BeatState currentState = channel.getBeatState();
-                    if (currentState != SILENT)
-                    {
-                        onBeatEvent(i, currentState);
-                    }
-                }
+                onBeatEvent(0, ch1State);
             }
         }
-        else
-        {
-            // In polyrhythm mode, ONLY handle channel 1 on quarter note boundaries
-            // Channel 2 is handled above at the PPQN level for more precise timing
-            MetronomeChannel &channel1 = state.getChannel(0);
-            if (channel1.isEnabled())
-            {
-                channel1.updateBeat(quarterNoteTick);
 
-                BeatState currentState = channel1.getBeatState();
-                if (currentState != SILENT)
+        // Only process channel 2 here if NOT in polyrhythm mode
+        if (!state.isPolyrhythm())
+        {
+            MetronomeChannel &channel2 = state.getChannel(1);
+            if (channel2.isEnabled())
+            {
+                channel2.updateBeat(quarterNoteTick);
+                BeatState ch2State = channel2.getBeatState();
+                if (ch2State != SILENT)
                 {
-                    onBeatEvent(0, currentState);
+                    onBeatEvent(1, ch2State);
                 }
             }
         }

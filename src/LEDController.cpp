@@ -5,10 +5,13 @@
 #define LED_TYPE WS2812B
 #define COLOR_ORDER GRB
 
-LEDController::LEDController() : leds(nullptr)
+LEDController::LEDController()
+    : leds(nullptr),
+      numLeds(NUM_LEDS),
+      mainSection(LEDS_PER_INDICATOR * (1 + FIXED_CHANNEL_COUNT)),
+      channelSection((NUM_LEDS - (LEDS_PER_INDICATOR * (1 + FIXED_CHANNEL_COUNT))) / FIXED_CHANNEL_COUNT)
 {
-  mainSection = NUM_LEDS / 3;
-  channelSection = mainSection;
+  // Constructor body can remain empty as initialization is done in init()
 }
 
 LEDController::~LEDController()
@@ -17,6 +20,19 @@ LEDController::~LEDController()
   {
     delete[] leds;
   }
+}
+
+bool LEDController::isFlashActive(const FlashState &flash) const
+{
+  if (!flash.isFlashing)
+    return false;
+  return (millis() - flash.startTime) < LED_BEAT_DURATION_MS;
+}
+
+void LEDController::startFlash(FlashState &flash)
+{
+  flash.startTime = millis();
+  flash.isFlashing = true;
 }
 
 void LEDController::init()
@@ -29,60 +45,80 @@ void LEDController::init()
   startupAnimation();
 }
 
-void LEDController::update(const MetronomeState &state)
+void LEDController::updateGlobalIndicator(const MetronomeState &state)
 {
-  // Update main beat section
-  uint32_t now = millis();
-  if (now - lastBeatTime < beatDuration)
+  // Global tempo indicator (first section)
+  bool shouldShow = state.isRunning && !state.isPaused && isFlashActive(globalFlash);
+  for (int i = 0; i < LEDS_PER_INDICATOR; i++)
   {
-    // Flash white on beat
-    for (int i = 0; i < mainSection; i++)
-    {
-      leds[i] = CRGB::White;
-    }
+    leds[i] = shouldShow ? CRGB::White : CRGB::Black;
   }
-  else
-  {
-    // Clear main section
-    for (int i = 0; i < mainSection; i++)
-    {
-      leds[i] = CRGB::Black;
-    }
-  }
+}
 
-  // Update channel sections
-  for (int i = 0; i < FIXED_CHANNEL_COUNT; i++)
+void LEDController::updateChannelIndicators(const MetronomeState &state)
+{
+  for (int ch = 0; ch < FIXED_CHANNEL_COUNT; ch++)
   {
-    const MetronomeChannel &channel = state.getChannel(i);
+    const MetronomeChannel &channel = state.getChannel(ch);
+    int startLed = LEDS_PER_INDICATOR * (1 + ch);
+
+    bool shouldShow = state.isRunning && !state.isPaused &&
+                      channel.isEnabled() && isFlashActive(channelFlash[ch]);
+
+    for (int i = 0; i < LEDS_PER_INDICATOR; i++)
+    {
+      leds[startLed + i] = shouldShow ? CRGB::White : CRGB::Black;
+    }
+  }
+}
+
+void LEDController::onGlobalBeat()
+{
+  startFlash(globalFlash);
+}
+
+void LEDController::onChannelBeat(uint8_t channel)
+{
+  if (channel < FIXED_CHANNEL_COUNT)
+  {
+    startFlash(channelFlash[channel]);
+  }
+}
+
+CRGB LEDController::getPatternColor(const MetronomeChannel &channel, uint8_t position) const
+{
+  if (position == channel.getCurrentBeat())
+  {
+    return channel.getPatternBit(position) ? CRGB::White : CRGB::Red;
+  }
+  return CRGB::Black;
+}
+
+void LEDController::updateChannelPatterns(const MetronomeState &state)
+{
+  for (int ch = 0; ch < FIXED_CHANNEL_COUNT; ch++)
+  {
+    const MetronomeChannel &channel = state.getChannel(ch);
     if (channel.isEnabled())
     {
-      int startLed = mainSection + (i * channelSection);
+      int startLed = mainSection + (ch * channelSection);
       int endLed = startLed + channelSection;
 
       for (int led = startLed; led < endLed; led++)
       {
         uint8_t position = led - startLed;
-        if (position == channel.getCurrentBeat())
-        {
-          leds[led] = channel.getPatternBit(position) ? CRGB::White : CRGB::Red;
-        }
-        else
-        {
-          leds[led] = CRGB::Black;
-        }
+        leds[led] = getPatternColor(channel, position);
       }
     }
   }
-
-  FastLED.show();
 }
 
-void LEDController::onBeat(uint8_t channel, BeatState beatState)
+void LEDController::update(const MetronomeState &state)
 {
-  if (channel == 0)
-  { // Only flash main section on channel 1 beats
-    lastBeatTime = millis();
-  }
+  updateGlobalIndicator(state);
+  updateChannelIndicators(state);
+  updateChannelPatterns(state);
+  FastLED.show();
 }
 
 void LEDController::clear()

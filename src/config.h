@@ -50,4 +50,5 @@
 
 // LED strip configuration
 #define LED_BRIGHTNESS 50
+#define LED_FLASH_DURATION_FRACTION 0.1f // Flash duration as fraction of beat
 #define LED_BEAT_DURATION_MS 100

@@ -136,9 +136,11 @@ void Timing::onBeatEvent(uint8_t channel, BeatState beatState)
 {
     solenoidController.processBeat(channel, beatState);
     audioController.processBeat(channel, beatState);
-    if (ledController)
+
+    // Trigger LED flash on active beats
+    if (ledController && beatState != SILENT)
     {
-        ledController->onBeat(channel, beatState);
+        ledController->onChannelBeat(channel);
     }
 }
 
@@ -146,6 +148,12 @@ void Timing::onClockPulse(uint32_t tick)
 {
     // Update the fractional tick position on every pulse
     state.updateTickFraction(tick);
+
+    // Trigger global beat flash on quarter notes
+    if (tick % 96 == 0 && ledController)
+    {
+        ledController->onGlobalBeat();
+    }
 
     // Always store the last PPQN tick for polyrhythm calculations
     state.lastPpqnTick = tick;

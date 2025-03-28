@@ -23,6 +23,7 @@ private:
   const uint8_t numLeds;
   static const uint8_t MAX_PATTERN_SIZE = 16;
   static const uint8_t BLINKER_SIZE = 1;
+  static const uint8_t GLOBAL_BRIGHTNESS = 32; // ~12.5% of max power
 
   struct FlashState
   {
@@ -33,8 +34,8 @@ private:
   FlashState globalFlash;
   FlashState channelFlash[FIXED_CHANNEL_COUNT];
 
-  static constexpr CRGB CH1_COLOR = CRGB(0, 100, 255);
-  static constexpr CRGB CH2_COLOR = CRGB(255, 100, 0);
+  static constexpr CRGB CH1_COLOR = CRGB(0, 25, 64); // Reduced from (0, 100, 255)
+  static constexpr CRGB CH2_COLOR = CRGB(64, 25, 0); // Reduced from (255, 100, 0)
 
   bool isFlashActive(const FlashState &flash) const;
   void startFlash(FlashState &flash);

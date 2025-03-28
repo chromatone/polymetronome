@@ -38,7 +38,7 @@ void LEDController::init()
   leds = new CRGB[NUM_LEDS];
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS)
       .setCorrection(TypicalLEDStrip);
-  FastLED.setBrightness(50);
+  FastLED.setBrightness(GLOBAL_BRIGHTNESS);
   clear();
   startupAnimation();
 }
@@ -76,13 +76,13 @@ void LEDController::drawPattern(const MetronomeChannel &channel, uint8_t startLe
 
     CRGB color = CRGB::Black;
     if (isCurrent && isActive)
-      color = CRGB::White;
+      color = CRGB(32, 32, 32); // Dimmed white
     else if (isActive)
       color = baseColor;
     else if (isCurrent)
-      color = CRGB(baseColor).nscale8(64);
+      color = CRGB(baseColor).nscale8(32); // More subtle highlight
     else
-      color = CRGB(baseColor).nscale8(25);
+      color = CRGB(baseColor).nscale8(8); // Very dim background
 
     leds[startLed + i] = color;
   }
@@ -182,7 +182,7 @@ void LEDController::startupAnimation()
 {
   for (int i = 0; i < NUM_LEDS; i++)
   {
-    leds[i] = CRGB::Green;
+    leds[i] = CRGB(0, 32, 0); // Dimmed green
     FastLED.show();
     delay(20);
     leds[i] = CRGB::Black;

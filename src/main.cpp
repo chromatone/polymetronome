@@ -14,13 +14,17 @@
 #include "Timing.h"
 #include "ConfigManager.h"
 #include "LEDController.h"
+#include "BuzzerController.h"
 
 MetronomeState state;
 Display display;
 SolenoidController solenoidController(SOLENOID_PIN, SOLENOID_PIN2);
 AudioController audioController(DAC_PIN);
+BuzzerController buzzerController(BUZZER_PIN); // Using GPIO26 defined in config.h
 WirelessSync wirelessSync;
-Timing timing(state, wirelessSync, solenoidController, audioController);
+// First create timing instance
+Timing timing(state, wirelessSync, solenoidController, audioController, &buzzerController);
+// Then create encoder controller with timing reference
 EncoderController encoderController(state, timing);
 LEDController ledController;
 
@@ -58,6 +62,7 @@ void setup()
 
     solenoidController.init();
     audioController.init();
+    buzzerController.init(); // Initialize buzzer controller
     display.begin();
     encoderController.begin();
     ledController.init();
@@ -140,6 +145,9 @@ void loop()
 
     // Update LED visualization
     ledController.update(state);
+
+    // Add buzzer update call
+    buzzerController.update();
 
     // Periodically save configuration if modified
     unsigned long currentTime = millis();

@@ -3,6 +3,7 @@
 #include <uClock.h>
 #include "MetronomeState.h"
 #include "WirelessSync.h"
+#include "BuzzerController.h" // Change from forward declaration to include
 
 // Forward declarations
 class SolenoidController;
@@ -19,6 +20,7 @@ private:
     AudioController &audioController;
     Display *display;
     LEDController *ledController;
+    BuzzerController *buzzerController;
 
     // Track previous running state to detect changes
     bool previousRunningState = false;
@@ -39,7 +41,15 @@ public:
     Timing(MetronomeState &state,
            WirelessSync &wirelessSync,
            SolenoidController &solenoidController,
-           AudioController &audioController);
+           AudioController &audioController,
+           BuzzerController *buzzerCtrl)
+        : state(state), wirelessSync(wirelessSync),
+          solenoidController(solenoidController),
+          audioController(audioController),
+          buzzerController(buzzerCtrl)
+    {
+        instance = this;
+    }
 
     // Set display reference
     void setDisplay(Display *displayRef);

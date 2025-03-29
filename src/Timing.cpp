@@ -2,7 +2,8 @@
 #include "SolenoidController.h"
 #include "AudioController.h"
 #include "Display.h"
-#include "LEDController.h" // Add this include
+#include "LEDController.h"
+#include "BuzzerController.h"
 
 // Initialize static instance pointer
 Timing *Timing::instance = nullptr;
@@ -45,21 +46,6 @@ void Timing::onStepStatic(uint32_t tick)
     {
         instance->wirelessSync.onStep(tick, instance->state);
     }
-}
-
-Timing::Timing(MetronomeState &state,
-               WirelessSync &wirelessSync,
-               SolenoidController &solenoidController,
-               AudioController &audioController)
-    : state(state),
-      wirelessSync(wirelessSync),
-      solenoidController(solenoidController),
-      audioController(audioController),
-      display(nullptr)
-{
-
-    // Set the singleton instance
-    instance = this;
 }
 
 void Timing::setDisplay(Display *displayRef)
@@ -136,6 +122,10 @@ void Timing::onBeatEvent(uint8_t channel, BeatState beatState)
 {
     solenoidController.processBeat(channel, beatState);
     audioController.processBeat(channel, beatState);
+    if (buzzerController)
+    {
+        buzzerController->processBeat(channel, beatState);
+    }
 
     // Trigger LED flash on active beats
     if (ledController && beatState != SILENT)

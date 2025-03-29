@@ -20,7 +20,7 @@ MetronomeState state;
 Display display;
 SolenoidController solenoidController(SOLENOID_PIN, SOLENOID_PIN2);
 AudioController audioController(DAC_PIN);
-BuzzerController buzzerController(BUZZER_PIN); // Using GPIO26 defined in config.h
+BuzzerController buzzerController(BUZZER_PIN1, BUZZER_PIN2); // Using two separate pins
 WirelessSync wirelessSync;
 // First create timing instance
 Timing timing(state, wirelessSync, solenoidController, audioController, &buzzerController);

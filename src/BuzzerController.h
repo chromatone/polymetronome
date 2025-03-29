@@ -7,34 +7,42 @@
 class BuzzerController
 {
 private:
-  uint8_t buzzerPin;
-  unsigned long startTime;
-  unsigned long soundDuration;
-  bool isPlaying = false;
+  uint8_t buzzerPin1;
+  uint8_t buzzerPin2;
 
-  // Sound parameters for each channel and beat type
-  struct SoundParams
+  struct SoundState
   {
-    uint16_t frequency; // Base frequency in Hz
-    uint16_t duration;  // Duration in milliseconds
-    uint8_t volume;     // PWM duty cycle (0-255)
+    bool isPlaying = false;
+    unsigned long startTime = 0;
+    unsigned long soundDuration = 0;
   };
 
-  // Sound configurations for each channel and beat type
-  const SoundParams ch1Strong = {2000, 50, 128}; // Higher pitch, longer duration
-  const SoundParams ch1Weak = {1500, 30, 64};    // Lower volume and shorter
-  const SoundParams ch2Strong = {2500, 45, 128}; // Different pitch for distinction
-  const SoundParams ch2Weak = {2000, 25, 64};    // Different pitch but softer
+  SoundState channel1State;
+  SoundState channel2State;
 
-  void playSound(const SoundParams &params);
-  void stopSound();
+  struct SoundParams
+  {
+    uint16_t frequency;
+    uint16_t duration;
+    uint8_t volume;
+  };
+
+  // Sound configurations for each channel
+  const SoundParams ch1Strong = {1000, 50, 128};
+  const SoundParams ch1Weak = {750, 30, 64};
+  const SoundParams ch2Strong = {1250, 45, 128};
+  const SoundParams ch2Weak = {900, 25, 64};
+
+  void playSound(uint8_t channel, const SoundParams &params);
+  void stopSound(uint8_t channel);
 
 public:
-  BuzzerController(uint8_t pin) : buzzerPin(pin) {}
+  BuzzerController(uint8_t pin1, uint8_t pin2)
+      : buzzerPin1(pin1), buzzerPin2(pin2) {}
 
   void init();
   void processBeat(uint8_t channel, BeatState beatState);
   void update();
 };
 
-#endif // BUZZER_CONTROLLER_H
+#endif

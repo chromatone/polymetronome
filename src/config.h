@@ -8,8 +8,9 @@
 #define BTN_STOP 19
 #define SOLENOID_PIN 14
 #define SOLENOID_PIN2 32
-#define DAC_PIN 25 // ESP32 DAC1 pin (GPIO25)
-#define BUZZER_PIN 26 // ESP32 GPIO26 for PWM buzzer output
+#define DAC_PIN 25     // ESP32 DAC1 pin (GPIO25)
+#define BUZZER_PIN1 26 // ESP32 GPIO26 for PWM buzzer output (Channel 1)
+#define BUZZER_PIN2 15 // ESP32 GPIO12 for PWM buzzer output (Channel 2)
 
 // Display I2C pins
 #define DISPLAY_SDA 21

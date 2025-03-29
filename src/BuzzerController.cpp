@@ -2,39 +2,59 @@
 
 void BuzzerController::init()
 {
-  // Configure LED PWM timer with higher frequency for audio
-  ledcSetup(0, 40000, 8); // Channel 0, 40kHz base freq for better audio, 8-bit resolution
-  ledcAttachPin(buzzerPin, 0);
+  // Configure PWM channels for both buzzers
+  ledcSetup(0, 40000, 8); // Channel 0 for first buzzer
+  ledcSetup(1, 40000, 8); // Channel 1 for second buzzer
 
-  // Initialize with no sound
+  ledcAttachPin(buzzerPin1, 0);
+  ledcAttachPin(buzzerPin2, 1);
+
+  // Initialize both with no sound
   ledcWrite(0, 0);
+  ledcWrite(1, 0);
 }
 
-void BuzzerController::playSound(const SoundParams &params)
+void BuzzerController::playSound(uint8_t channel, const SoundParams &params)
 {
-  // Set frequency - use a much higher base frequency
-  ledcChangeFrequency(0, params.frequency, 8);
-  // Set volume through PWM duty cycle
-  ledcWrite(0, params.volume);
+  uint8_t pwmChannel = (channel == 0) ? 0 : 1;
+  SoundState &state = (channel == 0) ? channel1State : channel2State;
 
-  // Use millis() for non-blocking duration timing
-  startTime = millis();
-  soundDuration = params.duration;
-  isPlaying = true;
+  ledcChangeFrequency(pwmChannel, params.frequency, 8);
+  ledcWrite(pwmChannel, params.volume);
+
+  state.startTime = millis();
+  state.soundDuration = params.duration;
+  state.isPlaying = true;
+}
+
+void BuzzerController::stopSound(uint8_t channel)
+{
+  ledcWrite(channel, 0);
+  if (channel == 0)
+  {
+    channel1State.isPlaying = false;
+  }
+  else
+  {
+    channel2State.isPlaying = false;
+  }
 }
 
 void BuzzerController::update()
 {
-  if (isPlaying && (millis() - startTime >= soundDuration))
+  // Update channel 1
+  if (channel1State.isPlaying &&
+      (millis() - channel1State.startTime >= channel1State.soundDuration))
   {
-    stopSound();
-    isPlaying = false;
+    stopSound(0);
   }
-}
 
-void BuzzerController::stopSound()
-{
-  ledcWrite(0, 0);
+  // Update channel 2
+  if (channel2State.isPlaying &&
+      (millis() - channel2State.startTime >= channel2State.soundDuration))
+  {
+    stopSound(1);
+  }
 }
 
 void BuzzerController::processBeat(uint8_t channel, BeatState beatState)
@@ -45,29 +65,15 @@ void BuzzerController::processBeat(uint8_t channel, BeatState beatState)
   switch (beatState)
   {
   case ACCENT:
-    if (channel == 0)
-    {
-      playSound(ch1Strong);
-    }
-    else
-    {
-      playSound(ch2Strong);
-    }
+    playSound(channel, channel == 0 ? ch1Strong : ch2Strong);
     break;
 
   case WEAK:
-    if (channel == 0)
-    {
-      playSound(ch1Weak);
-    }
-    else
-    {
-      playSound(ch2Weak);
-    }
+    playSound(channel, channel == 0 ? ch1Weak : ch2Weak);
     break;
 
   case SILENT:
-    stopSound();
+    stopSound(channel);
     break;
   }
 }

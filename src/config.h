@@ -10,7 +10,7 @@
 #define SOLENOID_PIN2 32
 // Remove DAC_PIN
 #define BUZZER_PIN1 26 // ESP32 GPIO26 for PWM buzzer output (Channel 1)
-#define BUZZER_PIN2 15 // ESP32 GPIO12 for PWM buzzer output (Channel 2)
+#define BUZZER_PIN2 25 // ESP32 GPIO12 for PWM buzzer output (Channel 2)
 
 // Display I2C pins
 #define DISPLAY_SDA 21

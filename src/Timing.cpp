@@ -1,6 +1,6 @@
 #include "Timing.h"
 #include "SolenoidController.h"
-#include "AudioController.h"
+// Remove AudioController include
 #include "Display.h"
 #include "LEDController.h"
 #include "BuzzerController.h"
@@ -121,7 +121,7 @@ void Timing::update()
 void Timing::onBeatEvent(uint8_t channel, BeatState beatState)
 {
     solenoidController.processBeat(channel, beatState);
-    audioController.processBeat(channel, beatState);
+    // Remove audioController.processBeat call
     if (buzzerController)
     {
         buzzerController->processBeat(channel, beatState);

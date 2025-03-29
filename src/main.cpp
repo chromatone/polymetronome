@@ -8,7 +8,7 @@
 #include "Display.h"
 #include "MetronomeState.h"
 #include "SolenoidController.h"
-#include "AudioController.h"
+// Remove AudioController include
 #include "EncoderController.h"
 #include "WirelessSync.h"
 #include "Timing.h"
@@ -19,11 +19,11 @@
 MetronomeState state;
 Display display;
 SolenoidController solenoidController(SOLENOID_PIN, SOLENOID_PIN2);
-AudioController audioController(DAC_PIN);
+// Remove AudioController instantiation
 BuzzerController buzzerController(BUZZER_PIN1, BUZZER_PIN2); // Using two separate pins
 WirelessSync wirelessSync;
-// First create timing instance
-Timing timing(state, wirelessSync, solenoidController, audioController, &buzzerController);
+// Update timing instantiation to remove audioController
+Timing timing(state, wirelessSync, solenoidController, &buzzerController);
 // Then create encoder controller with timing reference
 EncoderController encoderController(state, timing);
 LEDController ledController;
@@ -61,7 +61,7 @@ void setup()
     ConfigManager::end();
 
     solenoidController.init();
-    audioController.init();
+    // Remove audioController.init();
     buzzerController.init(); // Initialize buzzer controller
     display.begin();
     encoderController.begin();

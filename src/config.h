@@ -8,7 +8,7 @@
 #define BTN_STOP 19
 #define SOLENOID_PIN 14
 #define SOLENOID_PIN2 32
-#define DAC_PIN 25     // ESP32 DAC1 pin (GPIO25)
+// Remove DAC_PIN
 #define BUZZER_PIN1 26 // ESP32 GPIO26 for PWM buzzer output (Channel 1)
 #define BUZZER_PIN2 15 // ESP32 GPIO12 for PWM buzzer output (Channel 2)
 
@@ -25,11 +25,6 @@
 #define ACCENT_PULSE_MS 7
 #define SOUND_DURATION_MS 25        // Duration of sound on each beat (in ms)
 #define LONG_PRESS_DURATION_MS 1000 // Duration for long press in milliseconds
-
-// Audio settings
-#define AUDIO_FREQ_CH1 440        // Frequency for channel 1 in Hz
-#define AUDIO_FREQ_CH2 880        // Frequency for channel 2 in Hz
-#define AUDIO_MIXER_INTERVAL_MS 2 // Interval for audio mixer in milliseconds
 
 // Multiplier values (in quarters)
 #define MULTIPLIER_COUNT 4

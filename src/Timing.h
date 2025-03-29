@@ -7,7 +7,7 @@
 
 // Forward declarations
 class SolenoidController;
-class AudioController;
+// Remove AudioController forward declaration
 class Display;
 class LEDController;
 
@@ -17,7 +17,7 @@ private:
     MetronomeState &state;
     WirelessSync &wirelessSync;
     SolenoidController &solenoidController;
-    AudioController &audioController;
+    // Remove AudioController reference
     Display *display;
     LEDController *ledController;
     BuzzerController *buzzerController;
@@ -41,11 +41,9 @@ public:
     Timing(MetronomeState &state,
            WirelessSync &wirelessSync,
            SolenoidController &solenoidController,
-           AudioController &audioController,
            BuzzerController *buzzerCtrl)
         : state(state), wirelessSync(wirelessSync),
           solenoidController(solenoidController),
-          audioController(audioController),
           buzzerController(buzzerCtrl)
     {
         instance = this;

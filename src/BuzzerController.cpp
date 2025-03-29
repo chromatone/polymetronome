@@ -2,9 +2,9 @@
 
 void BuzzerController::init()
 {
-  // Configure PWM channels for both buzzers
-  ledcSetup(0, 40000, 8); // Channel 0 for first buzzer
-  ledcSetup(1, 40000, 8); // Channel 1 for second buzzer
+  // Configure PWM channels for both buzzers with higher frequency
+  ledcSetup(0, SoundConfig::PWM_FREQ, SoundConfig::PWM_RES); // Channel 0 for first buzzer
+  ledcSetup(1, SoundConfig::PWM_FREQ, SoundConfig::PWM_RES); // Channel 1 for second buzzer
 
   ledcAttachPin(buzzerPin1, 0);
   ledcAttachPin(buzzerPin2, 1);

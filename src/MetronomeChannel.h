@@ -5,7 +5,7 @@
 // Forward declaration of WirelessSync class
 class WirelessSync;
 // External declaration of the global instance
-extern WirelessSync* globalWirelessSync;
+extern WirelessSync *globalWirelessSync;
 
 // Forward declaration for MetronomeState to avoid circular includes
 class MetronomeState;
@@ -30,10 +30,15 @@ private:
     bool editing;
     uint8_t editStep;
     float beatProgress;
-    
+
     // For polyrhythm mode to prevent double triggers
     uint32_t lastTriggeredBeatPosition;
     uint32_t lastTriggeredTick;
+
+    // Volume control parameters
+    uint8_t volume = 255;       // Channel volume (0-255)
+    uint8_t strongVolume = 255; // Volume for strong beats (0-255)
+    uint8_t weakVolume = 192;   // Volume for weak beats (0-255)
 
 public:
     MetronomeChannel(uint8_t channelId);
@@ -63,8 +68,33 @@ public:
     void updateBeat(uint32_t globalTick);
     float getProgress() const;
     void resetBeat();
-    
+
     // New methods for polyrhythm mode
     void updatePolyrhythmBeat(uint32_t masterTick, uint8_t ch1Length, uint8_t ch2Length);
-    BeatState getPolyrhythmBeatState(uint32_t ppqnTick, const MetronomeState& state) const;
+    BeatState getPolyrhythmBeatState(uint32_t ppqnTick, const MetronomeState &state) const;
+
+    // Volume control methods
+    uint8_t getVolume() const { return volume; }
+    uint8_t getStrongVolume() const { return strongVolume; }
+    uint8_t getWeakVolume() const { return weakVolume; }
+
+    void setVolume(uint8_t vol)
+    {
+        volume = vol;
+        // Remove WirelessSync notification for now
+    }
+
+    void setStrongVolume(uint8_t vol) { strongVolume = vol; }
+    void setWeakVolume(uint8_t vol) { weakVolume = vol; }
+
+    // Get effective volumes (main volume * beat volume)
+    uint8_t getEffectiveStrongVolume() const
+    {
+        return (uint16_t)strongVolume * volume / 255;
+    }
+
+    uint8_t getEffectiveWeakVolume() const
+    {
+        return (uint16_t)weakVolume * volume / 255;
+    }
 };

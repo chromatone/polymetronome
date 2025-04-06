@@ -13,7 +13,7 @@ enum MenuPosition
 {
     MENU_BPM = 0,
     MENU_MULTIPLIER = 1,
-    MENU_RHYTHM_MODE = 2,  // New menu option for rhythm mode toggle
+    MENU_RHYTHM_MODE = 2, // New menu option for rhythm mode toggle
     MENU_CH1_TOGGLE = 3,
     MENU_CH1_LENGTH = 4,
     MENU_CH1_PATTERN = 5,
@@ -25,7 +25,7 @@ enum MenuPosition
 enum MetronomeMode
 {
     POLYMETER, // Traditional polymeter mode (additive, +)
-    POLYRHYTHM  // New polyrhythm mode (divisive, ÷)
+    POLYRHYTHM // New polyrhythm mode (divisive, ÷)
 };
 
 class MetronomeState
@@ -37,6 +37,8 @@ private:
     uint32_t gcd(uint32_t a, uint32_t b) const;
     uint32_t lcm(uint32_t a, uint32_t b) const;
 
+    static MetronomeState *instance;
+
 public:
     static const uint8_t CHANNEL_COUNT = FIXED_CHANNEL_COUNT;
 
@@ -46,11 +48,11 @@ public:
     uint16_t bpm = DEFAULT_BPM;
     bool isRunning = false;
     bool isPaused = false;
-    volatile uint32_t globalTick = 0;    // Made volatile for ISR access
-    volatile float tickFraction = 0.0f;  // Fractional part of the current tick (0.0 to 1.0)
-    uint32_t lastBeatTime = 0;           // Kept public as used by other modules
-    uint32_t lastPpqnTick = 0;           // Last PPQN tick from uClock
-    
+    volatile uint32_t globalTick = 0;   // Made volatile for ISR access
+    volatile float tickFraction = 0.0f; // Fractional part of the current tick (0.0 to 1.0)
+    uint32_t lastBeatTime = 0;          // Kept public as used by other modules
+    uint32_t lastPpqnTick = 0;          // Last PPQN tick from uClock
+
     // Rhythm mode (polymeter or polyrhythm)
     MetronomeMode rhythmMode = POLYMETER;
 
@@ -86,14 +88,20 @@ public:
     void adjustMultiplier(int8_t delta);
     void toggleRhythmMode();
     bool isPolyrhythm() const { return rhythmMode == POLYRHYTHM; }
-    
+
     // Reset methods
     void resetBpmToDefault();
     void resetPatternsAndMultiplier();
     void resetChannelPattern(uint8_t channelIndex);
-    
+
     // Configuration persistence methods
     bool saveToStorage();
     bool loadFromStorage();
     bool clearStorage();
+
+    static MetronomeState &getInstance()
+    {
+        static MetronomeState instance;
+        return instance;
+    }
 };
